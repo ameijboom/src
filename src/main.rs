@@ -5,15 +5,8 @@ use colored::Colorize;
 use git2::Repository;
 
 mod add;
+mod commit;
 mod status;
-
-macro_rules! print {
-    ($($arg:tt)*) => {
-        println!("{}", $($arg)*);
-    };
-}
-
-pub(crate) use print;
 
 #[derive(Parser)]
 struct Opts {
@@ -27,6 +20,7 @@ struct Opts {
 #[derive(Parser)]
 enum Cmd {
     Add(add::Opts),
+    Commit(commit::Opts),
 }
 
 fn main() {
@@ -36,6 +30,7 @@ fn main() {
 
         match opts.cmd {
             Some(Cmd::Add(opts)) => add::run(repo, opts),
+            Some(Cmd::Commit(opts)) => commit::run(repo, opts),
             None => status::run(repo),
         }
     };
