@@ -42,10 +42,12 @@ pub fn run(repo: Repository) -> Result<(), Box<dyn Error>> {
         .filter(|e| e.status() != Status::CURRENT)
         .collect::<Vec<_>>();
 
-    if !entries.is_empty() {
-        println!("Changes:");
+    if entries.is_empty() {
+        println!("No changes");
+        return Ok(());
     }
 
+    println!("Changes:");
     for entry in entries {
         let status = entry.status();
         let indicator = match status {
