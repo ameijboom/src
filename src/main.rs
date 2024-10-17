@@ -4,6 +4,7 @@ use clap::Parser;
 use colored::Colorize;
 use git2::Repository;
 
+mod add;
 mod status;
 
 macro_rules! print {
@@ -24,7 +25,9 @@ struct Opts {
 }
 
 #[derive(Parser)]
-enum Cmd {}
+enum Cmd {
+    Add(add::Opts),
+}
 
 fn main() {
     let opts = Opts::parse();
@@ -32,7 +35,7 @@ fn main() {
         let repo = Repository::open(opts.dir)?;
 
         match opts.cmd {
-            Some(_) => todo!(),
+            Some(Cmd::Add(opts)) => add::run(repo, opts),
             None => status::run(repo),
         }
     };
