@@ -1,9 +1,10 @@
-use std::{env, error::Error, str::FromStr};
+use std::{env, error::Error, str::FromStr, time::Duration};
 
 use clap::Parser;
 use colored::Colorize;
 use git2::{Cred, PushOptions, RemoteCallbacks, Repository};
 use http::Uri;
+use indicatif::ProgressBar;
 use ssh2_config::{ParseRule, SshConfig};
 
 use crate::utils;
@@ -54,12 +55,20 @@ pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
         return Ok(());
     };
 
+    let bar = ProgressBar::new_spinner();
     let mut callbacks = RemoteCallbacks::new();
 
     callbacks.credentials(|url, username, _| get_credentials(url, username));
+    callbacks.pack_progress(|_stage, current, total| {
+        bar.set_message("Packing");
+        bar.set_length(total as u64);
+        bar.set_position(current as u64);
+    });
     callbacks.push_transfer_progress(|current, total, _bytes| {
         if !(total == 0 && current == 0) {
-            println!("{}", format!("Progress: {}/{}", current, total).black());
+            bar.set_message("Pushing");
+            bar.set_length(total as u64);
+            bar.set_position(current as u64);
         }
     });
 
@@ -69,11 +78,15 @@ pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
         format!(" {branch}").purple(),
     );
 
+    bar.enable_steady_tick(Duration::from_millis(100));
+
     let mut remote = repo.find_remote(remote_name)?;
     remote.push(
         &[head.name().unwrap_or_default()],
         Some(PushOptions::new().remote_callbacks(callbacks)),
     )?;
+
+    bar.finish_with_message("✓ done");
 
     Ok(())
 }
