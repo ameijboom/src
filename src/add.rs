@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, path::Path};
 
 use clap::Parser;
 use colored::Colorize;
@@ -10,6 +10,16 @@ pub struct Opts {
     targets: Vec<String>,
 }
 
+pub fn add_callback(path: &Path, _: &[u8]) -> i32 {
+    println!(
+        "{} {}",
+        "+".green().bold(),
+        path.to_str().unwrap_or_default().green()
+    );
+
+    0
+}
+
 pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut count = 0;
     let mut index = repo.index()?;
@@ -18,12 +28,7 @@ pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
         IndexAddOption::DEFAULT,
         Some(&mut |path, _| {
             count += 1;
-            println!(
-                "{} {}",
-                "+".green().bold(),
-                path.to_str().unwrap_or_default().green()
-            );
-            0
+            add_callback(path, &[])
         }),
     )?;
     index.write()?;
