@@ -4,6 +4,8 @@ use std::error::Error;
 use colored::Colorize;
 use git2::{ErrorCode, Repository, RepositoryState, Status, StatusOptions};
 
+use crate::utils;
+
 fn show_branch(repo: &Repository) -> Result<(), Box<dyn Error>> {
     let indicators = remote_state_indicators(repo)?
         .map(|s| format!(" {}{s}{}", "(".black(), ")".black()))
@@ -27,14 +29,9 @@ fn remote_state_indicators(repo: &Repository) -> Result<Option<String>, Box<dyn 
     let Ok(head) = repo.head() else {
         return Ok(None);
     };
-    let remote = repo.branch_upstream_name(head.name().unwrap_or_default())?;
-    let remote = str::from_utf8(&remote)?;
-    let remote = repo.find_reference(remote)?;
 
-    let Some(remote) = remote.target() else {
-        return Ok(None);
-    };
-    let Some(local) = head.target() else {
+    let remote = utils::find_remote_ref(repo, head.name().unwrap_or_default())?;
+    let (Some(local), Some(remote)) = (head.target(), remote.target()) else {
         return Ok(None);
     };
 
