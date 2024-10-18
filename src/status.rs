@@ -21,10 +21,10 @@ fn show_branch(repo: &Repository) -> Result<(), Box<dyn Error>> {
             }
             .unwrap_or_else(|| "<unknown>".to_owned());
 
-            println!("On: {}{indicators}", format!(" {name}").purple());
+            println!("On {}{indicators}", format!(" {name}").purple());
         }
         Err(e) if e.code() == ErrorCode::UnbornBranch => {
-            println!("On: {}{indicators}", "[no branch]".yellow());
+            println!("On {}{indicators}", "[no branch]".yellow());
         }
         Err(e) => return Err(e.into()),
     };

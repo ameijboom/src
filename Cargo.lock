@@ -465,6 +465,7 @@ dependencies = [
  "http",
  "indicatif",
  "ssh2-config",
+ "thiserror",
 ]
 
 [[package]]
