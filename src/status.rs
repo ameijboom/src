@@ -102,6 +102,7 @@ fn show_changes(repo: &Repository) -> Result<(), Box<dyn Error>> {
             s if s.is_wt_new() || s.is_index_new() => "+".green(),
             s if s.is_wt_modified() || s.is_index_modified() => "~".yellow(),
             s if s.is_wt_renamed() || s.is_index_renamed() => ">".yellow(),
+            s if s.is_wt_deleted() || s.is_index_deleted() => "-".red(),
             _ => "?".black(),
         };
         let path = entry.path().unwrap_or_default();
