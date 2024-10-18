@@ -3,9 +3,8 @@ use std::error::Error;
 use clap::Parser;
 use colored::Colorize;
 use git2::{Config, IndexAddOption, Repository, Signature};
-use sha1::{Digest, Sha1};
 
-use crate::add::add_callback;
+use crate::{add::add_callback, utils};
 
 #[derive(Parser)]
 pub struct Opts {
@@ -44,11 +43,8 @@ pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
         &tree,
         &[&head.peel_to_commit()?],
     )?;
-    let mut hasher = Sha1::new();
-    hasher.update(oid);
-    let digest = hasher.finalize();
 
-    println!("Created {}", hex::encode(digest).black());
+    println!("Created {}", utils::short(&oid).black());
 
     Ok(())
 }

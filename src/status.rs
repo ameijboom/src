@@ -1,4 +1,3 @@
-use core::str;
 use std::error::Error;
 
 use colored::Colorize;
@@ -7,14 +6,22 @@ use git2::{ErrorCode, Repository, RepositoryState, Status, StatusOptions};
 use crate::utils;
 
 fn show_branch(repo: &Repository) -> Result<(), Box<dyn Error>> {
-    let indicators = remote_state_indicators(repo)?
+    let indicators = remote_state_indicators(repo)
+        .ok()
+        .flatten()
         .map(|s| format!(" {}{s}{}", "(".black(), ")".black()))
         .unwrap_or_default();
 
     match repo.head() {
         Ok(head) => {
-            let branch = head.shorthand().unwrap_or_default();
-            println!("On: {}{indicators}", format!(" {branch}").purple());
+            let name = if head.is_branch() || head.is_tag() {
+                head.shorthand().map(ToOwned::to_owned)
+            } else {
+                head.target().map(|oid| utils::short(&oid))
+            }
+            .unwrap_or_else(|| "<unknown>".to_owned());
+
+            println!("On: {}{indicators}", format!(" {name}").purple());
         }
         Err(e) if e.code() == ErrorCode::UnbornBranch => {
             println!("On: {}{indicators}", "[no branch]".yellow());
@@ -26,10 +33,7 @@ fn show_branch(repo: &Repository) -> Result<(), Box<dyn Error>> {
 }
 
 fn remote_state_indicators(repo: &Repository) -> Result<Option<String>, Box<dyn Error>> {
-    let Ok(head) = repo.head() else {
-        return Ok(None);
-    };
-
+    let head = repo.head()?;
     let remote = utils::find_remote_ref(repo, head.name().unwrap_or_default())?;
     let (Some(local), Some(remote)) = (head.target(), remote.target()) else {
         return Ok(None);
@@ -87,11 +91,11 @@ fn show_changes(repo: &Repository) -> Result<(), Box<dyn Error>> {
         .collect::<Vec<_>>();
 
     if entries.is_empty() {
-        println!("No changes");
         return Ok(());
     }
 
     println!("Changes:");
+
     for entry in entries {
         let status = entry.status();
         let indicator = match status {

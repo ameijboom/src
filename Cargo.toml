@@ -9,5 +9,4 @@ colored = "2.1.0"
 git2 = { version = "0.19.0", features = ["zlib-ng-compat"] }
 hex = "0.4.3"
 http = "1.1.0"
-sha1 = "0.10.6"
 ssh2-config = { git = "https://github.com/dmeijboom/ssh2-config", rev = "e9d528a16700d0b5769948896327e3f6871bf584" }
