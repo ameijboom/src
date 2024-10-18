@@ -4,10 +4,8 @@ use clap::Parser;
 use colored::Colorize;
 use git2::Repository;
 
-mod add;
-mod commit;
-mod push;
-mod status;
+mod callbacks;
+mod cmd;
 mod utils;
 
 #[derive(Parser)]
@@ -21,9 +19,9 @@ struct Opts {
 
 #[derive(Parser)]
 enum Cmd {
-    Add(add::Opts),
-    Commit(commit::Opts),
-    Push(push::Opts),
+    Add(cmd::add::Opts),
+    Commit(cmd::commit::Opts),
+    Push(cmd::push::Opts),
 }
 
 fn main() {
@@ -32,10 +30,10 @@ fn main() {
         let repo = Repository::open(opts.dir)?;
 
         match opts.cmd {
-            Some(Cmd::Add(opts)) => add::run(repo, opts),
-            Some(Cmd::Commit(opts)) => commit::run(repo, opts),
-            Some(Cmd::Push(opts)) => push::run(repo, opts),
-            None => status::run(repo),
+            Some(Cmd::Add(opts)) => cmd::add::run(repo, opts),
+            Some(Cmd::Commit(opts)) => cmd::commit::run(repo, opts),
+            Some(Cmd::Push(opts)) => cmd::push::run(repo, opts),
+            None => cmd::status::run(repo),
         }
     };
 

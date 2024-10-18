@@ -4,7 +4,7 @@ use clap::Parser;
 use colored::Colorize;
 use git2::{Config, IndexAddOption, Repository, Signature};
 
-use crate::{add::add_callback, utils};
+use crate::{cmd::add::add_callback, utils};
 
 #[derive(Parser)]
 pub struct Opts {
