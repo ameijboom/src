@@ -25,6 +25,7 @@ pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
             IndexAddOption::DEFAULT,
             Some(&mut add_callback),
         )?;
+        index.write()?;
     }
 
     let head = repo.head()?;

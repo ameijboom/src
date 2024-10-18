@@ -1,28 +1,63 @@
+use core::str;
 use std::error::Error;
 
 use colored::Colorize;
 use git2::{ErrorCode, Repository, RepositoryState, Status, StatusOptions};
 
-pub fn run(repo: Repository) -> Result<(), Box<dyn Error>> {
+fn show_branch(repo: &Repository) -> Result<(), Box<dyn Error>> {
+    let indicators = remote_state_indicators(repo)?
+        .map(|s| format!(" {}{s}{}", "(".black(), ")".black()))
+        .unwrap_or_default();
+
     match repo.head() {
         Ok(head) => {
             let branch = head.shorthand().unwrap_or_default();
-            println!("At {}", format!(" {branch}").purple());
+            println!("On: {}{indicators}", format!(" {branch}").purple());
         }
         Err(e) if e.code() == ErrorCode::UnbornBranch => {
-            println!("At {}", "[no branch]".yellow());
+            println!("On: {}{indicators}", "[no branch]".yellow());
         }
         Err(e) => return Err(e.into()),
     };
 
-    let mut opts = StatusOptions::new();
-    let statuses = repo.statuses(Some(
-        opts.include_ignored(false)
-            .include_untracked(true)
-            .recurse_untracked_dirs(true)
-            .exclude_submodules(true),
-    ))?;
+    Ok(())
+}
 
+fn remote_state_indicators(repo: &Repository) -> Result<Option<String>, Box<dyn Error>> {
+    let Ok(head) = repo.head() else {
+        return Ok(None);
+    };
+    let remote = repo.branch_upstream_name(head.name().unwrap_or_default())?;
+    let remote = str::from_utf8(&remote)?;
+    let remote = repo.find_reference(remote)?;
+
+    let Some(remote) = remote.target() else {
+        return Ok(None);
+    };
+    let Some(local) = head.target() else {
+        return Ok(None);
+    };
+
+    let (ahead, behind) = repo.graph_ahead_behind(local, remote)?;
+
+    if ahead == 0 && behind == 0 {
+        Ok(None)
+    } else if ahead == 0 && behind != 0 {
+        Ok(Some(format!("{} {}", "↓".red(), behind)))
+    } else if behind == 0 && ahead != 0 {
+        Ok(Some(format!("{} {}", "↑".green(), ahead)))
+    } else {
+        Ok(Some(format!(
+            "{} {} {} {}",
+            "↑".green(),
+            ahead,
+            "↓".red(),
+            behind
+        )))
+    }
+}
+
+fn show_state(repo: &Repository) -> Result<(), Box<dyn Error>> {
     match repo.state() {
         RepositoryState::Merge => println!("In merge"),
         RepositoryState::Revert | RepositoryState::RevertSequence => println!("In revert"),
@@ -36,6 +71,18 @@ pub fn run(repo: Repository) -> Result<(), Box<dyn Error>> {
         | RepositoryState::RebaseMerge => println!("In rebase"),
         _ => {}
     }
+
+    Ok(())
+}
+
+fn show_changes(repo: &Repository) -> Result<(), Box<dyn Error>> {
+    let mut opts = StatusOptions::new();
+    let statuses = repo.statuses(Some(
+        opts.include_ignored(false)
+            .include_untracked(true)
+            .recurse_untracked_dirs(true)
+            .exclude_submodules(true),
+    ))?;
 
     let entries = statuses
         .iter()
@@ -69,6 +116,14 @@ pub fn run(repo: Repository) -> Result<(), Box<dyn Error>> {
             println!("  {indicator} {}", path.black());
         }
     }
+
+    Ok(())
+}
+
+pub fn run(repo: Repository) -> Result<(), Box<dyn Error>> {
+    show_branch(&repo)?;
+    show_state(&repo)?;
+    show_changes(&repo)?;
 
     Ok(())
 }
