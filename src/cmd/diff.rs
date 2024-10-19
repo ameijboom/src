@@ -34,7 +34,8 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
         match line.origin() {
             '+' => print!("{}", format!("+{content}").green()),
             '-' => print!("{}", format!("-{content}").red()),
-            prefix => print!("{prefix}{}", content),
+            ' ' => print!(" {}", content),
+            _ => print!("{}", content),
         }
 
         true
