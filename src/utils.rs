@@ -1,6 +1,6 @@
 use std::string::FromUtf8Error;
 
-use git2::{Oid, Reference, Repository};
+use git2::{Error, ErrorClass, ErrorCode, Oid, Reference, Repository};
 
 #[derive(Debug, thiserror::Error)]
 pub enum FindRemoteError {
@@ -40,4 +40,12 @@ pub fn parse_remote(refname: &str) -> Result<&str, ParseRemoteError> {
 
 pub fn short(oid: &Oid) -> String {
     oid.to_string().chars().take(7).collect()
+}
+
+pub fn config_opt<T>(result: Result<T, Error>) -> Result<Option<T>, Error> {
+    match result {
+        Ok(value) => Ok(Some(value)),
+        Err(e) if e.code() == ErrorCode::NotFound && e.class() == ErrorClass::Config => Ok(None),
+        Err(e) => Err(e),
+    }
 }
