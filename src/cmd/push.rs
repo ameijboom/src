@@ -5,14 +5,14 @@ use colored::Colorize;
 use git2::{Branch, BranchType, ErrorCode, PushOptions, Repository};
 use indicatif::ProgressBar;
 
-use crate::{callbacks::remote_callbacks, utils};
+use crate::{callbacks::remote_callbacks, named::Named, utils};
 
 #[derive(Debug, thiserror::Error)]
 pub enum PushError {
     #[error("missing target")]
     MissingTarget,
     #[error("failed to parse remote in upstream")]
-    RemoteParse,
+    ParseRemote(#[from] utils::ParseRemoteError),
 }
 
 #[derive(Parser)]
@@ -23,7 +23,7 @@ fn set_tracking_branch(
     remote: &str,
     branch: &mut Branch<'_>,
 ) -> Result<(), Box<dyn Error>> {
-    let name = branch.name()?.unwrap_or_default();
+    let name = branch.name_checked()?;
     let reference = repo.reference(
         &format!("refs/remotes/{remote}/{name}"),
         branch.get().target().ok_or(PushError::MissingTarget)?,
@@ -40,7 +40,7 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
     let head = repo.head()?;
     let head_name = head.shorthand().unwrap_or_default();
     let mut branch = repo.find_branch(head_name, BranchType::Local)?;
-    let branch_name = branch.name()?.unwrap_or_default().to_string();
+    let branch_name = branch.name_checked()?.to_string();
 
     let upstream = match branch.upstream() {
         Ok(upstream) => upstream,
@@ -63,8 +63,7 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut bar = ProgressBar::new_spinner();
     let callbacks = remote_callbacks(&mut out, &mut bar);
 
-    let remote_name =
-        utils::parse_remote(upstream.name()?.unwrap_or_default()).ok_or(PushError::RemoteParse)?;
+    let remote_name = utils::parse_remote(upstream.name_checked()?)?;
     let mut remote = repo.find_remote(remote_name)?;
 
     println!(
@@ -74,7 +73,7 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
     );
 
     remote.push(
-        &[head.name().unwrap_or_default()],
+        &[head.name_checked()?],
         Some(PushOptions::new().remote_callbacks(callbacks)),
     )?;
 

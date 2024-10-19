@@ -6,6 +6,7 @@ use git2::Repository;
 
 mod callbacks;
 mod cmd;
+mod named;
 mod utils;
 
 #[derive(Parser)]
@@ -22,6 +23,7 @@ enum Cmd {
     Add(cmd::add::Opts),
     Commit(cmd::commit::Opts),
     Push(cmd::push::Opts),
+    Fetch(cmd::fetch::Opts),
 }
 
 fn main() {
@@ -33,6 +35,7 @@ fn main() {
             Some(Cmd::Add(opts)) => cmd::add::run(repo, opts),
             Some(Cmd::Commit(opts)) => cmd::commit::run(repo, opts),
             Some(Cmd::Push(opts)) => cmd::push::run(repo, opts),
+            Some(Cmd::Fetch(opts)) => cmd::fetch::run(repo, opts),
             None => cmd::status::run(repo),
         }
     };
