@@ -80,9 +80,11 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
     bar.finish_and_clear();
     println!("✓ done");
 
-    if let Ok(msg) = std::str::from_utf8(&out) {
-        println!("\nMessage:");
-        println!("{}", msg.trim().black());
+    if let Ok(msg) = std::str::from_utf8(&out).map(|s| s.trim()) {
+        if !msg.is_empty() {
+            println!("\nReply:");
+            println!("{}", msg.black());
+        }
     }
 
     Ok(())
