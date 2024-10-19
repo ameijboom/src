@@ -25,6 +25,7 @@ enum Cmd {
     Push(cmd::push::Opts),
     Fetch(cmd::fetch::Opts),
     List(cmd::list::Opts),
+    Diff(cmd::diff::Opts),
 }
 
 fn main() {
@@ -38,6 +39,7 @@ fn main() {
             Some(Cmd::Push(opts)) => cmd::push::run(repo, opts),
             Some(Cmd::Fetch(opts)) => cmd::fetch::run(repo, opts),
             Some(Cmd::List(opts)) => cmd::list::run(repo, opts),
+            Some(Cmd::Diff(opts)) => cmd::diff::run(repo, opts),
             None => cmd::status::run(repo),
         }
     };
