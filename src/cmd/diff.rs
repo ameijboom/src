@@ -21,7 +21,8 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
                 .ignore_whitespace_change(false)
                 .include_ignored(false)
                 .include_untracked(true)
-                .recurse_untracked_dirs(true),
+                .recurse_untracked_dirs(true)
+                .show_untracked_content(true),
         ),
     )?;
 
@@ -35,6 +36,7 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
             '+' => print!("{}", format!("+{content}").green()),
             '-' => print!("{}", format!("-{content}").red()),
             ' ' => print!(" {}", content),
+            'F' | 'H' => print!("{}", content.black()),
             _ => print!("{}", content),
         }
 
