@@ -21,6 +21,10 @@ pub fn add_callback(path: &Path, _: &[u8]) -> i32 {
 }
 
 pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
+    if opts.targets.is_empty() {
+        return Err("No files specified".into());
+    }
+
     let mut count = 0;
     let mut index = repo.index()?;
     index.add_all(
