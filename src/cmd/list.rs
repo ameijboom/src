@@ -11,6 +11,9 @@ use crate::utils;
 pub struct Opts {
     #[clap(long, short, default_value = "false")]
     short: bool,
+
+    #[clap(long, short, default_value = "20")]
+    limit: usize,
 }
 
 fn is_signed(commit: &Commit) -> bool {
@@ -24,7 +27,7 @@ pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
 
-    for oid in revwalk.take(20) {
+    for oid in revwalk.take(opts.limit) {
         let id = oid?;
         let commit = repo.find_commit(id)?;
         let created_at = DateTime::from_timestamp(commit.time().seconds(), 0)
