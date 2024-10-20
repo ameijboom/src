@@ -11,6 +11,7 @@ git2 = { version = "0.19.0", features = ["zlib-ng-compat"] }
 hex = "0.4.3"
 http = "1.1.0"
 indicatif = "0.17.8"
+pager = "0.16.1"
 ssh2-config = { git = "https://github.com/dmeijboom/ssh2-config", rev = "e9d528a16700d0b5769948896327e3f6871bf584" }
 tempfile = "3.13.0"
 thiserror = "1.0.64"

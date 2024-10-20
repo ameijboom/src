@@ -4,17 +4,18 @@ use chrono::{DateTime, Local, TimeZone};
 use clap::Parser;
 use colored::Colorize;
 use git2::{Commit, Repository};
+use pager::Pager;
 
 use crate::utils;
 
 #[derive(Parser)]
 #[clap(about = "Show commit logs")]
 pub struct Opts {
-    #[clap(long, short, default_value = "false")]
+    #[clap(long, short)]
     short: bool,
 
-    #[clap(long, short, default_value = "20")]
-    limit: usize,
+    #[clap(long)]
+    no_pager: bool,
 }
 
 fn is_signed(commit: &Commit) -> bool {
@@ -24,11 +25,11 @@ fn is_signed(commit: &Commit) -> bool {
         .unwrap_or(false)
 }
 
-pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
+fn _run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
 
-    for oid in revwalk.take(opts.limit) {
+    for oid in revwalk {
         let id = oid?;
         let commit = repo.find_commit(id)?;
         let created_at = DateTime::from_timestamp(commit.time().seconds(), 0)
@@ -65,4 +66,14 @@ pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
+    if opts.no_pager {
+        _run(repo, opts)
+    } else {
+        colored::control::set_override(true);
+        Pager::with_default_pager("less -R").setup();
+        _run(repo, opts)
+    }
 }
