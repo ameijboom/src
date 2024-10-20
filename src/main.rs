@@ -27,6 +27,7 @@ enum Cmd {
     Commit(cmd::commit::Opts),
     Push(cmd::push::Opts),
     Fetch(cmd::fetch::Opts),
+    Pull(cmd::pull::Opts),
     List(cmd::list::Opts),
     Diff(cmd::diff::Opts),
 }
@@ -41,6 +42,7 @@ fn main() {
             Some(Cmd::Commit(opts)) => cmd::commit::run(repo, opts),
             Some(Cmd::Push(opts)) => cmd::push::run(repo, opts),
             Some(Cmd::Fetch(opts)) => cmd::fetch::run(repo, opts),
+            Some(Cmd::Pull(opts)) => cmd::pull::run(repo, opts),
             Some(Cmd::List(opts)) => cmd::list::run(repo, opts),
             Some(Cmd::Diff(opts)) => cmd::diff::run(repo, opts),
             None => match opts.branch {

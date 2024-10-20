@@ -4,5 +4,6 @@ pub mod commit;
 pub mod diff;
 pub mod fetch;
 pub mod list;
+pub mod pull;
 pub mod push;
 pub mod status;
