@@ -7,6 +7,7 @@ use indicatif::ProgressBar;
 use crate::{callbacks::remote_callbacks, named::Named, utils};
 
 #[derive(Parser)]
+#[clap(about = "Download objects and refs")]
 pub struct Opts {}
 
 pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {

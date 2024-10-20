@@ -31,6 +31,7 @@ fn print_patch(diff: &Diff) -> Result<(), git2::Error> {
 }
 
 #[derive(Parser)]
+#[clap(about = "Show changes")]
 pub struct Opts {
     #[clap(short, long, default_value = "false")]
     pub patch: bool,

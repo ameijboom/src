@@ -16,6 +16,9 @@ struct Opts {
 
     #[clap(subcommand)]
     cmd: Option<Cmd>,
+
+    #[clap(help = "Branch name to checkout")]
+    branch: Option<String>,
 }
 
 #[derive(Parser)]
@@ -40,7 +43,10 @@ fn main() {
             Some(Cmd::Fetch(opts)) => cmd::fetch::run(repo, opts),
             Some(Cmd::List(opts)) => cmd::list::run(repo, opts),
             Some(Cmd::Diff(opts)) => cmd::diff::run(repo, opts),
-            None => cmd::status::run(repo),
+            None => match opts.branch {
+                Some(branch) => cmd::checkout::run(repo, branch),
+                None => cmd::status::run(repo),
+            },
         }
     };
 

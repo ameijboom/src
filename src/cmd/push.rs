@@ -16,6 +16,7 @@ pub enum PushError {
 }
 
 #[derive(Parser)]
+#[clap(about = "Update remote refs along with associated objects")]
 pub struct Opts {}
 
 fn set_tracking_branch(

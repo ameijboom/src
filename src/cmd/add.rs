@@ -5,6 +5,7 @@ use colored::Colorize;
 use git2::{IndexAddOption, Repository};
 
 #[derive(Parser)]
+#[clap(about = "Add file contents to the index")]
 pub struct Opts {
     #[clap()]
     targets: Vec<String>,

@@ -8,6 +8,7 @@ use git2::{Commit, Repository};
 use crate::utils;
 
 #[derive(Parser)]
+#[clap(about = "Show commit logs")]
 pub struct Opts {
     #[clap(long, short, default_value = "false")]
     short: bool,

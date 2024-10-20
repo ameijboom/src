@@ -12,6 +12,7 @@ use tempfile::NamedTempFile;
 use crate::{cmd::add::add_callback, utils};
 
 #[derive(Parser)]
+#[clap(about = "Record changes to the repository")]
 pub struct Opts {
     #[clap(short, long)]
     add_all: bool,
