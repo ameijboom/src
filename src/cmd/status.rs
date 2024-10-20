@@ -91,6 +91,7 @@ fn show_changes(repo: &Repository) -> Result<(), Box<dyn Error>> {
         .collect::<Vec<_>>();
 
     if entries.is_empty() {
+        println!("No changes");
         return Ok(());
     }
 
