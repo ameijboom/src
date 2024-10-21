@@ -1,6 +1,7 @@
-use std::path::PathBuf;
+use std::{io, path::PathBuf};
 
-use clap::Parser;
+use clap::{CommandFactory, Parser, ValueHint};
+use clap_complete::{generate, Shell};
 use colored::Colorize;
 use git2::Repository;
 
@@ -11,7 +12,7 @@ mod utils;
 
 #[derive(Parser)]
 struct Opts {
-    #[clap(short, long, default_value = ".")]
+    #[clap(short, long, default_value = ".", value_hint = ValueHint::DirPath)]
     dir: PathBuf,
 
     #[clap(subcommand)]
@@ -19,6 +20,9 @@ struct Opts {
 
     #[clap(help = "Branch name to checkout")]
     branch: Option<String>,
+
+    #[arg(long = "generate", value_enum)]
+    generator: Option<Shell>,
 }
 
 #[derive(Parser)]
@@ -34,6 +38,14 @@ enum Cmd {
 
 fn main() {
     let opts = Opts::parse();
+
+    if let Some(generator) = opts.generator {
+        let mut cmd = Opts::command();
+        let bin_name = cmd.get_name().to_string();
+        generate(generator, &mut cmd, bin_name, &mut io::stdout());
+        return;
+    }
+
     let app = || {
         let repo = Repository::open(opts.dir)?;
 

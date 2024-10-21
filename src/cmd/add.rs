@@ -1,13 +1,13 @@
 use std::{error::Error, path::Path};
 
-use clap::Parser;
+use clap::{Parser, ValueHint};
 use colored::Colorize;
 use git2::{IndexAddOption, Repository};
 
 #[derive(Parser)]
 #[clap(about = "Add file contents to the index")]
 pub struct Opts {
-    #[clap()]
+    #[clap(value_hint = ValueHint::AnyPath)]
     targets: Vec<String>,
 }
 

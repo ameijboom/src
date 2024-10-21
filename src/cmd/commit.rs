@@ -14,10 +14,10 @@ use crate::{cmd::add::add_callback, utils};
 #[derive(Parser)]
 #[clap(about = "Record changes to the repository")]
 pub struct Opts {
-    #[clap(short, long)]
+    #[clap(short, long, help = "Add all changes")]
     add_all: bool,
 
-    #[clap()]
+    #[clap(help = "Commit message")]
     message: String,
 }
 

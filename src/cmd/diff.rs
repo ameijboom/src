@@ -4,7 +4,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use clap::Parser;
+use clap::{Parser, ValueHint};
 use git2::{Diff, DiffFindOptions, DiffFormat, DiffOptions, Repository};
 use which::which;
 
@@ -35,6 +35,7 @@ fn print_patch(diff: &Diff) -> Result<(), git2::Error> {
 pub struct Opts {
     #[clap(short, long, default_value = "false")]
     pub patch: bool,
+    #[clap(value_hint = ValueHint::AnyPath)]
     pub filter: Option<String>,
 }
 

@@ -11,10 +11,10 @@ use crate::utils;
 #[derive(Parser)]
 #[clap(about = "Show commit logs")]
 pub struct Opts {
-    #[clap(long, short)]
+    #[clap(long, short, help = "Show logs in one line without metadata")]
     short: bool,
 
-    #[clap(long)]
+    #[clap(long, help = "Disable the pager")]
     no_pager: bool,
 }
 
