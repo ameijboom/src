@@ -36,6 +36,7 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
 
     bar.finish_and_clear();
 
+    let branch = repo.find_branch(&branch_name, BranchType::Local)?;
     let Some(oid) = branch.upstream()?.into_reference().target() else {
         return Err("invalid oid for upstream".into());
     };
