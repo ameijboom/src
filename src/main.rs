@@ -8,6 +8,7 @@ use git2::Repository;
 mod callbacks;
 mod cmd;
 mod named;
+mod select;
 mod utils;
 
 #[derive(Parser)]
@@ -34,6 +35,7 @@ enum Cmd {
     Pull(cmd::pull::Opts),
     List(cmd::list::Opts),
     Diff(cmd::diff::Opts),
+    Checkout(cmd::checkout::Opts),
 }
 
 fn main() {
@@ -57,8 +59,9 @@ fn main() {
             Some(Cmd::Pull(opts)) => cmd::pull::run(repo, opts),
             Some(Cmd::List(opts)) => cmd::list::run(repo, opts),
             Some(Cmd::Diff(opts)) => cmd::diff::run(repo, opts),
+            Some(Cmd::Checkout(opts)) => cmd::checkout::run(repo, opts),
             None => match opts.branch {
-                Some(branch) => cmd::checkout::run(repo, branch),
+                Some(branch) => cmd::checkout::run(repo, cmd::checkout::Opts::with_branch(branch)),
                 None => cmd::status::run(repo),
             },
         }
