@@ -36,7 +36,7 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
 
     bar.finish_and_clear();
 
-    let Some(oid) = upstream.into_reference().target() else {
+    let Some(oid) = branch.upstream()?.into_reference().target() else {
         return Err("invalid oid for upstream".into());
     };
 
