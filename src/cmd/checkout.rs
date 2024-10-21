@@ -3,7 +3,7 @@ use std::error::Error;
 use clap::Parser;
 use git2::{build::CheckoutBuilder, BranchType, Repository};
 
-use crate::{named::Named, select::select};
+use crate::{named::Named, select};
 
 #[derive(Parser)]
 #[clap(about = "Checkout a branch")]
@@ -29,7 +29,7 @@ pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
 
     let branch = match opts.branch {
         Some(branch) => branch,
-        None => match select(&names)? {
+        None => match select::single(&names)? {
             Some(branch) => branch,
             None => return Err("No branch selected".into()),
         },

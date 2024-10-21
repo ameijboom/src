@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use colored::Colorize;
-use git2::{ErrorCode, Repository, RepositoryState, Status, StatusOptions};
+use git2::{ErrorCode, Repository, RepositoryState, Status};
 
 use crate::{named::Named, utils};
 
@@ -77,14 +77,7 @@ fn show_state(repo: &Repository) -> Result<(), Box<dyn Error>> {
 }
 
 fn show_changes(repo: &Repository) -> Result<(), Box<dyn Error>> {
-    let mut opts = StatusOptions::new();
-    let statuses = repo.statuses(Some(
-        opts.include_ignored(false)
-            .include_untracked(true)
-            .recurse_untracked_dirs(true)
-            .exclude_submodules(true),
-    ))?;
-
+    let statuses = utils::status_entries(repo)?;
     let entries = statuses
         .iter()
         .filter(|e| e.status() != Status::CURRENT)

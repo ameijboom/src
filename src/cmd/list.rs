@@ -54,9 +54,9 @@ fn _run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
             "".white()
         };
 
-        if let Err(e) = write!(
+        if let Err(e) = writeln!(
             stdout,
-            "{signed}{} {}\n",
+            "{signed}{} {}",
             utils::short(&id).yellow(),
             commit.message().unwrap_or_default().trim()
         ) {

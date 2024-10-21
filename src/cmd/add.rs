@@ -2,7 +2,9 @@ use std::{error::Error, path::Path};
 
 use clap::{Parser, ValueHint};
 use colored::Colorize;
-use git2::{IndexAddOption, Repository};
+use git2::{IndexAddOption, Repository, Status};
+
+use crate::{select, utils};
 
 #[derive(Parser)]
 #[clap(about = "Add file contents to the index")]
@@ -22,14 +24,24 @@ pub fn add_callback(path: &Path, _: &[u8]) -> i32 {
 }
 
 pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
-    if opts.targets.is_empty() {
-        return Err("No files specified".into());
-    }
+    let targets = if opts.targets.is_empty() {
+        let entries = utils::status_entries(&repo)?;
+        let files = entries
+            .into_iter()
+            .filter(|e| e.status() != Status::CURRENT)
+            .filter_map(|entry| entry.path().map(|p| p.to_string()))
+            .collect::<Vec<_>>();
+
+        select::multi(&files)?
+    } else {
+        opts.targets
+    };
 
     let mut count = 0;
     let mut index = repo.index()?;
+
     index.add_all(
-        opts.targets,
+        targets,
         IndexAddOption::DEFAULT,
         Some(&mut |path, _| {
             count += 1;
