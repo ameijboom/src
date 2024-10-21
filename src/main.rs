@@ -3,7 +3,7 @@ use std::{io, path::PathBuf};
 use clap::{CommandFactory, Parser, ValueHint};
 use clap_complete::{generate, Shell};
 use colored::Colorize;
-use git2::Repository;
+use git2::{Repository, RepositoryOpenFlags};
 
 mod callbacks;
 mod cmd;
@@ -49,7 +49,7 @@ fn main() {
     }
 
     let app = || {
-        let repo = Repository::open(opts.dir)?;
+        let repo = Repository::open_ext(&opts.dir, RepositoryOpenFlags::empty(), &[&opts.dir])?;
 
         match opts.cmd {
             Some(Cmd::Add(opts)) => cmd::add::run(repo, opts),
