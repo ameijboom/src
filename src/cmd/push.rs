@@ -84,7 +84,7 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
     if let Ok(msg) = std::str::from_utf8(&out).map(|s| s.trim()) {
         if !msg.is_empty() {
             println!("\nReply:");
-            println!("{}", msg.black());
+            println!("{}", msg.bright_black());
         }
     }
 

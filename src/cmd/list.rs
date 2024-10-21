@@ -69,8 +69,8 @@ fn _run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
             let _ = write!(
                 stdout,
                 "{}\n{}\n\n",
-                format!("Date: {}", created_at.format("%Y-%m-%d %H:%M")).black(),
-                format!("Author: {}", author).black(),
+                format!("Date: {}", created_at.format("%Y-%m-%d %H:%M")).bright_black(),
+                format!("Author: {}", author).bright_black(),
             );
         }
     }

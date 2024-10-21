@@ -9,7 +9,7 @@ fn show_branch(repo: &Repository) -> Result<(), Box<dyn Error>> {
     let indicators = remote_state_indicators(repo)
         .ok()
         .flatten()
-        .map(|s| format!(" {}{s}{}", "(".black(), ")".black()))
+        .map(|s| format!(" {}{s}{}", "(".bright_black(), ")".bright_black()))
         .unwrap_or_default();
 
     match repo.head() {
@@ -97,7 +97,7 @@ fn show_changes(repo: &Repository) -> Result<(), Box<dyn Error>> {
             s if s.is_wt_modified() || s.is_index_modified() => "~".yellow(),
             s if s.is_wt_renamed() || s.is_index_renamed() => ">".yellow(),
             s if s.is_wt_deleted() || s.is_index_deleted() => "-".red(),
-            _ => "?".black(),
+            _ => "?".bright_black(),
         };
         let path = entry.path().unwrap_or_default();
         let indexed = status.is_index_deleted()
@@ -109,7 +109,7 @@ fn show_changes(repo: &Repository) -> Result<(), Box<dyn Error>> {
         if indexed {
             println!("  {} {}", indicator.bold(), path.white());
         } else {
-            println!("  {indicator} {}", path.black());
+            println!("  {indicator} {}", path.bright_black());
         }
     }
 

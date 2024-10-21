@@ -74,9 +74,9 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
 
     println!(
         "Changes {}{}{}:",
-        "(".black(),
+        "(".bright_black(),
         indicators.join(" "),
-        ")".black()
+        ")".bright_black()
     );
 
     for delta in diff.deltas() {
