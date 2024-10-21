@@ -43,7 +43,10 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
     let commit = repo.find_annotated_commit(oid)?;
     let (analysis, _) = repo.merge_analysis(&[&commit])?;
 
-    if !analysis.is_fast_forward() {
+    if analysis.is_up_to_date() {
+        println!("Already up to date");
+        return Ok(());
+    } else if !analysis.is_fast_forward() {
         return Err("unsupported operation (no fast-forward)".into());
     }
 
