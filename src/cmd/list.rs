@@ -1,4 +1,7 @@
-use std::error::Error;
+use std::{
+    error::Error,
+    io::{self, ErrorKind, Write},
+};
 
 use chrono::{DateTime, Local, TimeZone};
 use clap::Parser;
@@ -26,6 +29,7 @@ fn is_signed(commit: &Commit) -> bool {
 }
 
 fn _run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
+    let mut stdout = io::stdout();
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
 
@@ -50,15 +54,21 @@ fn _run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
             "".white()
         };
 
-        println!(
-            "{signed}{} {}",
+        if let Err(e) = write!(
+            stdout,
+            "{signed}{} {}\n",
             utils::short(&id).yellow(),
             commit.message().unwrap_or_default().trim()
-        );
+        ) {
+            if e.kind() == ErrorKind::BrokenPipe {
+                return Ok(());
+            }
+        }
 
         if !opts.short {
-            println!(
-                "{}\n{}\n",
+            let _ = write!(
+                stdout,
+                "{}\n{}\n\n",
                 format!("Date: {}", created_at.format("%Y-%m-%d %H:%M")).black(),
                 format!("Author: {}", author).black(),
             );
