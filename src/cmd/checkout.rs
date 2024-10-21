@@ -37,9 +37,10 @@ pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
 
     let branch = repo.find_branch(&branch, BranchType::Local)?;
     let reference = branch.into_reference();
+    let tree = reference.peel_to_tree()?;
 
+    repo.checkout_tree(&tree.into_object(), Some(CheckoutBuilder::default().safe()))?;
     repo.set_head(reference.name_checked()?)?;
-    repo.checkout_head(Some(CheckoutBuilder::default().force()))?;
 
     drop(reference);
 
