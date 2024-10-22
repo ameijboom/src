@@ -35,6 +35,7 @@ enum Cmd {
     Pull(cmd::pull::Opts),
     List(cmd::list::Opts),
     Diff(cmd::diff::Opts),
+    Branch(cmd::branch::Opts),
     Checkout(cmd::checkout::Opts),
 }
 
@@ -59,6 +60,7 @@ fn main() {
             Some(Cmd::Pull(opts)) => cmd::pull::run(repo, opts),
             Some(Cmd::List(opts)) => cmd::list::run(repo, opts),
             Some(Cmd::Diff(opts)) => cmd::diff::run(repo, opts),
+            Some(Cmd::Branch(opts)) => cmd::branch::run(repo, opts),
             Some(Cmd::Checkout(opts)) => cmd::checkout::run(repo, opts),
             None => match opts.branch {
                 Some(branch) => cmd::checkout::run(repo, cmd::checkout::Opts::with_branch(branch)),
