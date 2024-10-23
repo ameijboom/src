@@ -29,6 +29,8 @@ struct Opts {
 #[derive(Parser)]
 enum Cmd {
     Add(cmd::add::Opts),
+    Feat(cmd::commit::Opts),
+    Fix(cmd::commit::Opts),
     Commit(cmd::commit::Opts),
     Push(cmd::push::Opts),
     Fetch(cmd::fetch::Opts),
@@ -54,6 +56,14 @@ fn main() {
 
         match opts.cmd {
             Some(Cmd::Add(opts)) => cmd::add::run(repo, opts),
+            Some(Cmd::Feat(mut opts)) => {
+                opts.message = format!("feat: {}", opts.message);
+                cmd::commit::run(repo, opts)
+            }
+            Some(Cmd::Fix(mut opts)) => {
+                opts.message = format!("fix: {}", opts.message);
+                cmd::commit::run(repo, opts)
+            }
             Some(Cmd::Commit(opts)) => cmd::commit::run(repo, opts),
             Some(Cmd::Push(opts)) => cmd::push::run(repo, opts),
             Some(Cmd::Fetch(opts)) => cmd::fetch::run(repo, opts),
