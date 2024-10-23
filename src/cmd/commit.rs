@@ -18,7 +18,7 @@ pub struct Opts {
     add_all: bool,
 
     #[clap(help = "Commit message")]
-    message: String,
+    pub message: String,
 }
 
 fn sign_commit(config: &Config, content: &Buf) -> Result<String, Box<dyn Error>> {
