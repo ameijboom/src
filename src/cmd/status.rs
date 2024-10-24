@@ -38,8 +38,8 @@ fn show_branch(repo: &Repository) -> Result<(), Box<dyn Error>> {
 
 fn remote_state_indicators(repo: &Repository) -> Result<Option<String>, Box<dyn Error>> {
     let head = repo.head()?;
-    let remote = utils::find_remote_ref(repo, head.name_checked()?)?;
-    let (Some(local), Some(remote)) = (head.target(), remote.target()) else {
+    let remote = utils::find_remote_ref(repo, head.name_checked()?)?.and_then(|r| r.target());
+    let (Some(local), Some(remote)) = (head.target(), remote) else {
         return Ok(None);
     };
 

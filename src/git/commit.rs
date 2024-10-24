@@ -27,10 +27,14 @@ impl<'a> Commit<'a> {
         &self,
         message: &str,
         author: Option<&Signature<'_>>,
+        parent: Option<&git2::Commit<'_>>,
     ) -> Result<Oid, Box<dyn Error>> {
         let current_author = self.signature()?;
         let author = author.unwrap_or(&current_author);
-        let parent = self.repo.head()?.peel_to_commit()?;
+        let parent = match parent {
+            Some(parent) => parent,
+            None => &self.repo.head()?.peel_to_commit()?,
+        };
 
         if self.config.get_bool("commit.gpgsign").optional()? == Some(true) {
             let signer: Box<dyn Signer> =
@@ -45,7 +49,7 @@ impl<'a> Commit<'a> {
 
             let buf =
                 self.repo
-                    .commit_create_buffer(author, author, message, &self.tree, &[&parent])?;
+                    .commit_create_buffer(author, author, message, &self.tree, &[parent])?;
             let signed = signer.sign(&buf)?;
             let content = std::str::from_utf8(&buf)?;
 
@@ -53,7 +57,7 @@ impl<'a> Commit<'a> {
         } else {
             Ok(self
                 .repo
-                .commit(None, author, author, message, &self.tree, &[&parent])?)
+                .commit(None, author, author, message, &self.tree, &[parent])?)
         }
     }
 }

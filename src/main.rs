@@ -33,6 +33,7 @@ enum Cmd {
     Feat(cmd::commit::Opts),
     Fix(cmd::commit::Opts),
     Commit(cmd::commit::Opts),
+    Amend(cmd::amend::Opts),
     Push(cmd::push::Opts),
     Fetch(cmd::fetch::Opts),
     Pull(cmd::pull::Opts),
@@ -66,6 +67,7 @@ fn main() {
                 cmd::commit::run(repo, opts)
             }
             Some(Cmd::Commit(opts)) => cmd::commit::run(repo, opts),
+            Some(Cmd::Amend(opts)) => cmd::amend::run(repo, opts),
             Some(Cmd::Push(opts)) => cmd::push::run(repo, opts),
             Some(Cmd::Fetch(opts)) => cmd::fetch::run(repo, opts),
             Some(Cmd::Pull(opts)) => cmd::pull::run(repo, opts),

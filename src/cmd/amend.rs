@@ -11,13 +11,13 @@ use crate::{
 };
 
 #[derive(Parser)]
-#[clap(about = "Record changes to the repository")]
+#[clap(about = "Amend recorded changes to the repository")]
 pub struct Opts {
     #[clap(short, long, help = "Add all changes")]
     add_all: bool,
 
     #[clap(help = "Commit message")]
-    pub message: String,
+    message: Option<String>,
 }
 
 pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
@@ -29,13 +29,18 @@ pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
     }
 
     let tree = index.write_tree()?;
+    let latest = repo.head()?.peel_to_commit()?;
     let config = Config::open_default()?;
 
+    let message = opts
+        .message
+        .as_deref()
+        .unwrap_or_else(|| latest.message().unwrap_or_default());
     let commit = Commit::build(&config, &repo, tree);
-    let oid = commit.create(&opts.message, None, None)?;
+    let oid = commit.create(message, Some(&latest.author()), Some(&latest.parent(0)?))?;
 
     repo.head()?
-        .set_target(oid, &format!("commit: {}", opts.message))?;
+        .set_target(oid, &format!("commit: {message}"))?;
 
     println!("Created {}", utils::short(&oid).yellow());
 
