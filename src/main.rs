@@ -7,6 +7,7 @@ use git2::{Repository, RepositoryOpenFlags};
 
 mod callbacks;
 mod cmd;
+mod git;
 mod named;
 mod select;
 mod utils;
@@ -52,7 +53,7 @@ fn main() {
     }
 
     let app = || {
-        let repo = Repository::open_ext(&opts.dir, RepositoryOpenFlags::empty(), &[&opts.dir])?;
+        let repo = Repository::open_ext(&opts.dir, RepositoryOpenFlags::empty(), [&opts.dir])?;
 
         match opts.cmd {
             Some(Cmd::Add(opts)) => cmd::add::run(repo, opts),

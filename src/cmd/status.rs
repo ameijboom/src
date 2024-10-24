@@ -1,9 +1,13 @@
 use std::error::Error;
 
 use colored::Colorize;
-use git2::{ErrorCode, Repository, RepositoryState, Status};
+use git2::{ErrorCode, Repository, RepositoryState};
 
-use crate::{named::Named, utils};
+use crate::{
+    git::status::{Change, EntryStatus, Status},
+    named::Named,
+    utils,
+};
 
 fn show_branch(repo: &Repository) -> Result<(), Box<dyn Error>> {
     let indicators = remote_state_indicators(repo)
@@ -77,11 +81,8 @@ fn show_state(repo: &Repository) -> Result<(), Box<dyn Error>> {
 }
 
 fn show_changes(repo: &Repository) -> Result<(), Box<dyn Error>> {
-    let statuses = utils::status_entries(repo)?;
-    let entries = statuses
-        .iter()
-        .filter(|e| e.status() != Status::CURRENT)
-        .collect::<Vec<_>>();
+    let status = Status::build(repo)?;
+    let entries = status.entries().collect::<Vec<_>>();
 
     if entries.is_empty() {
         println!("No changes");
@@ -91,25 +92,23 @@ fn show_changes(repo: &Repository) -> Result<(), Box<dyn Error>> {
     println!("Changes:");
 
     for entry in entries {
-        let status = entry.status();
-        let indicator = match status {
-            s if s.is_wt_new() || s.is_index_new() => "+".green(),
-            s if s.is_wt_modified() || s.is_index_modified() => "~".yellow(),
-            s if s.is_wt_renamed() || s.is_index_renamed() => ">".yellow(),
-            s if s.is_wt_deleted() || s.is_index_deleted() => "-".red(),
-            _ => "?".bright_black(),
+        let (indexed, change) = match entry.status() {
+            EntryStatus::Unknown => (false, None),
+            EntryStatus::WorkTree(change) => (false, Some(change)),
+            EntryStatus::Index(change) => (true, Some(change)),
         };
-        let path = entry.path().unwrap_or_default();
-        let indexed = status.is_index_deleted()
-            || status.is_index_modified()
-            || status.is_index_new()
-            || status.is_index_renamed()
-            || status.is_index_typechange();
+        let indicator = match change {
+            Some(Change::New) => "+".green(),
+            Some(Change::Modified) => "~".yellow(),
+            Some(Change::Renamed) => ">".yellow(),
+            Some(Change::Deleted) => "-".red(),
+            None | Some(Change::Type) => "?".bright_black(),
+        };
 
         if indexed {
-            println!("  {} {}", indicator.bold(), path.white());
+            println!("  {} {}", indicator.bold(), entry.path()?.white());
         } else {
-            println!("  {indicator} {}", path.bright_black());
+            println!("  {indicator} {}", entry.path()?.bright_black());
         }
     }
 

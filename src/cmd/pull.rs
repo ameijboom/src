@@ -16,7 +16,6 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut bar = ProgressBar::new_spinner();
 
     let mut head = repo.head()?;
-    let tree = head.peel_to_tree()?;
     let Some(branch_name) = head.shorthand().map(ToOwned::to_owned) else {
         return Err("invalid name for HEAD".into());
     };
@@ -60,6 +59,7 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
         utils::short(&oid).yellow()
     );
 
+    let tree = head.peel_to_tree()?;
     let diff = repo.diff_tree_to_workdir_with_index(Some(&tree), None)?;
     let stats = diff.stats()?;
     let mut indicators = vec![];

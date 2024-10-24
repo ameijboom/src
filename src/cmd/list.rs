@@ -40,12 +40,6 @@ fn _run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
             .map(|dt| dt.naive_local())
             .map(|dt| Local.from_utc_datetime(&dt))
             .unwrap_or_default();
-        let sig = commit.author();
-        let author_name = sig.name().unwrap_or("<unknown>");
-        let author = match sig.email() {
-            Some(email) => format!("{} <{}>", author_name, email),
-            None => author_name.to_owned(),
-        };
         let signed = if is_signed(&commit) {
             "⚿ ".green()
         } else if opts.short {
@@ -70,7 +64,7 @@ fn _run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
                 stdout,
                 "{}\n{}\n\n",
                 format!("Date: {}", created_at.format("%Y-%m-%d %H:%M")).bright_black(),
-                format!("Author: {}", author).bright_black(),
+                format!("Author: {}", commit.author()).bright_black(),
             );
         }
     }
