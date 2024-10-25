@@ -28,7 +28,7 @@ fn try_checkout(repo: &Repository, reference: Reference<'_>) -> Result<bool, git
 
     if let Err(e) = repo.checkout_tree(&tree, Some(CheckoutBuilder::default().safe())) {
         if e.code() != ErrorCode::Conflict && e.class() != ErrorClass::Checkout {
-            return Err(e.into());
+            return Err(e);
         }
 
         return Ok(false);
@@ -66,7 +66,7 @@ pub fn run(mut repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
             Some(StashFlags::INCLUDE_UNTRACKED),
         )?;
 
-        println!("{}\n", "✓ Changes stashed");
+        println!("✓ Changes stashed\n");
 
         let branch = repo.find_branch(&branch_name, BranchType::Local)?;
         let reference = branch.into_reference();

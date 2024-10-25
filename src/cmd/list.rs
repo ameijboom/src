@@ -3,13 +3,12 @@ use std::{
     io::{self, ErrorKind, Write},
 };
 
-use chrono::{DateTime, Local, TimeZone};
 use clap::Parser;
 use colored::Colorize;
 use git2::{Commit, Repository};
 use pager::Pager;
 
-use crate::utils;
+use crate::{git, utils};
 
 #[derive(Parser)]
 #[clap(about = "Show commit logs")]
@@ -28,6 +27,14 @@ fn is_signed(commit: &Commit) -> bool {
         .unwrap_or(false)
 }
 
+fn check_write(result: Result<(), io::Error>) -> Result<(), io::Error> {
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == ErrorKind::BrokenPipe => Ok(()),
+        Err(e) => Err(e),
+    }
+}
+
 fn _run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut stdout = io::stdout();
     let mut revwalk = repo.revwalk()?;
@@ -36,10 +43,7 @@ fn _run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
     for oid in revwalk {
         let id = oid?;
         let commit = repo.find_commit(id)?;
-        let created_at = DateTime::from_timestamp(commit.time().seconds(), 0)
-            .map(|dt| dt.naive_local())
-            .map(|dt| Local.from_utc_datetime(&dt))
-            .unwrap_or_default();
+        let created_at = git::parse_local_time(commit.time());
         let signed = if is_signed(&commit) {
             "⚿ ".green()
         } else if opts.short {
@@ -47,25 +51,32 @@ fn _run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
         } else {
             "".white()
         };
+        let message = commit.message().unwrap_or_default().trim();
 
-        if let Err(e) = writeln!(
-            stdout,
-            "{signed}{} {}",
-            utils::short(&id).yellow(),
-            commit.message().unwrap_or_default().trim()
-        ) {
-            if e.kind() == ErrorKind::BrokenPipe {
-                return Ok(());
-            }
-        }
-
-        if !opts.short {
-            let _ = write!(
+        if opts.short {
+            check_write(writeln!(
+                stdout,
+                "{signed}{} {}",
+                utils::short(&id).yellow(),
+                message.split('\n').next().unwrap_or_default()
+            ))?;
+        } else {
+            check_write(writeln!(stdout, "{signed}{}", id.to_string().yellow()))?;
+            check_write(write!(
                 stdout,
                 "{}\n{}\n\n",
                 format!("Date: {}", created_at.format("%Y-%m-%d %H:%M")).bright_black(),
                 format!("Author: {}", commit.author()).bright_black(),
-            );
+            ))?;
+            check_write(writeln!(
+                stdout,
+                "{}\n",
+                message
+                    .lines()
+                    .map(|l| format!("  {l}"))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ))?;
         }
     }
 

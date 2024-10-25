@@ -23,7 +23,7 @@ impl<'a> Commit<'a> {
         author: Option<&Signature<'_>>,
         parent: Option<&git2::Commit<'_>>,
     ) -> Result<Oid, Box<dyn Error>> {
-        let current_author = super::signature(&self.config)?;
+        let current_author = super::signature(self.config)?;
         let author = author.unwrap_or(&current_author);
         let parent = match parent {
             Some(parent) => parent,
