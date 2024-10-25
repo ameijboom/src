@@ -17,19 +17,13 @@ impl<'a> Commit<'a> {
         Self { config, tree, repo }
     }
 
-    pub fn signature(&self) -> Result<Signature<'a>, git2::Error> {
-        let name = self.config.get_string("user.name").optional()?;
-        let email = self.config.get_string("user.email")?;
-        Signature::now(&name.unwrap_or_default(), &email)
-    }
-
     pub fn create(
         &self,
         message: &str,
         author: Option<&Signature<'_>>,
         parent: Option<&git2::Commit<'_>>,
     ) -> Result<Oid, Box<dyn Error>> {
-        let current_author = self.signature()?;
+        let current_author = super::signature(&self.config)?;
         let author = author.unwrap_or(&current_author);
         let parent = match parent {
             Some(parent) => parent,

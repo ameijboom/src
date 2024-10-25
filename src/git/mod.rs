@@ -1,4 +1,4 @@
-use git2::{Error, ErrorClass, ErrorCode};
+use git2::{Config, Error, ErrorClass, ErrorCode, Signature};
 
 pub mod commit;
 pub mod index;
@@ -19,4 +19,10 @@ impl<T> Optional<T> for Result<T, git2::Error> {
             Err(e) => Err(e),
         }
     }
+}
+
+pub fn signature(config: &Config) -> Result<Signature<'_>, git2::Error> {
+    let name = config.get_string("user.name").optional()?;
+    let email = config.get_string("user.email")?;
+    Signature::now(&name.unwrap_or_default(), &email)
 }
