@@ -8,4 +8,5 @@ pub mod fetch;
 pub mod list;
 pub mod pull;
 pub mod push;
+pub mod stash;
 pub mod status;
