@@ -12,17 +12,19 @@ pub struct Opts {
     branch: String,
 }
 
-pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
+pub fn create_branch_checkout(repo: &Repository, name: &str) -> Result<(), Box<dyn Error>> {
     let target = repo.head()?.peel_to_commit()?;
-    let branch = repo.branch(&opts.branch, &target, false)?;
+    let branch = repo.branch(name, &target, false)?;
     let reference = branch.into_reference();
     let tree = reference.peel_to_tree()?;
 
     repo.checkout_tree(&tree.into_object(), Some(CheckoutBuilder::default().safe()))?;
     repo.set_head(reference.name_checked()?)?;
 
-    drop(target);
-    drop(reference);
+    Ok(())
+}
 
+pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
+    create_branch_checkout(&repo, &opts.branch)?;
     super::status::run(repo)
 }

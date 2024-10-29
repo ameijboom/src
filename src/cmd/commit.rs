@@ -5,7 +5,7 @@ use colored::Colorize;
 use git2::{Config, Repository};
 
 use crate::{
-    cmd::add::add_callback,
+    cmd::{add::add_callback, branch::create_branch_checkout},
     git::{commit::Commit, index::Index},
     utils,
 };
@@ -16,11 +16,30 @@ pub struct Opts {
     #[clap(short, long, help = "Add all changes")]
     add_all: bool,
 
+    #[clap(short, long, help = "Create a branch")]
+    branch: bool,
+
     #[clap(help = "Commit message")]
     pub message: String,
 }
 
+fn branch_name(message: &str) -> String {
+    if let Some((prefix, name)) = message.split_once(':') {
+        return format!(
+            "{}/{}",
+            prefix.trim().replace(' ', "-"),
+            name.trim().replace(' ', "-")
+        );
+    }
+
+    message.trim().replace(' ', "-")
+}
+
 pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
+    if opts.branch {
+        create_branch_checkout(&repo, &branch_name(&opts.message))?;
+    }
+
     let mut index = Index::build(&repo)?;
 
     if opts.add_all {
