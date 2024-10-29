@@ -35,8 +35,12 @@ fn print_patch(diff: &Diff) -> Result<(), git2::Error> {
 pub struct Opts {
     #[clap(short, long, default_value = "false")]
     pub patch: bool,
+
     #[clap(value_hint = ValueHint::AnyPath)]
     pub filter: Option<String>,
+
+    #[clap(short, long)]
+    pub staged: bool,
 }
 
 pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
@@ -57,7 +61,11 @@ pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
         diff_opts.pathspec(filter);
     }
 
-    let mut diff = repo.diff_tree_to_workdir_with_index(Some(&tree), Some(&mut diff_opts))?;
+    let mut diff = if opts.staged {
+        repo.diff_tree_to_index(Some(&tree), None, Some(&mut diff_opts))?
+    } else {
+        repo.diff_tree_to_workdir_with_index(Some(&tree), Some(&mut diff_opts))?
+    };
 
     let mut find_opts = DiffFindOptions::new();
     diff.find_similar(Some(find_opts.renames(true).copies(true)))?;
