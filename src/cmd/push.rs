@@ -60,10 +60,6 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
         Err(e) => return Err(e.into()),
     };
 
-    let mut out = vec![];
-    let mut bar = ProgressBar::new_spinner();
-    let callbacks = remote_callbacks(&mut out, &mut bar);
-
     let remote_name = utils::parse_remote(upstream.name_checked()?)?;
     let mut remote = repo.find_remote(remote_name)?;
 
@@ -72,6 +68,12 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
         format!("⬡ {remote_name}").cyan(),
         format!(" {branch_name}").purple(),
     );
+
+    let mut bar = ProgressBar::new_spinner();
+    bar.set_message("Preparing");
+
+    let mut out = vec![];
+    let callbacks = remote_callbacks(&mut out, &mut bar);
 
     remote.push(
         &[head.name_checked()?],
