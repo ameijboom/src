@@ -7,11 +7,14 @@ use indicatif::ProgressBar;
 
 use crate::{callbacks::remote_callbacks, named::Named, utils};
 
-#[derive(Parser)]
+#[derive(Parser, Default)]
 #[clap(about = "Pull changes")]
-pub struct Opts {}
+pub struct Opts {
+    #[clap(short, long, help = "Show detailed output")]
+    details: bool,
+}
 
-pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
+pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut stdout = vec![];
     let mut bar = ProgressBar::new_spinner();
 
@@ -73,20 +76,22 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
     }
 
     println!(
-        "Changes {}{}{}:",
+        "Changes {}{}{}",
         "(".bright_black(),
         indicators.join(" "),
         ")".bright_black()
     );
 
-    for delta in diff.deltas() {
-        if let Some(path) = delta.new_file().path().and_then(|p| p.to_str()) {
-            match delta.status() {
-                Delta::Added => println!("  {}", format!("+ {path}").green()),
-                Delta::Deleted => println!("  {}", format!("- {path}").red()),
-                Delta::Modified => println!("  {}", format!("~ {path}").yellow()),
-                Delta::Renamed => println!("  {}", format!("> {path}").yellow()),
-                _ => continue,
+    if opts.details {
+        for delta in diff.deltas() {
+            if let Some(path) = delta.new_file().path().and_then(|p| p.to_str()) {
+                match delta.status() {
+                    Delta::Added => println!("  {}", format!("+ {path}").green()),
+                    Delta::Deleted => println!("  {}", format!("- {path}").red()),
+                    Delta::Modified => println!("  {}", format!("~ {path}").yellow()),
+                    Delta::Renamed => println!("  {}", format!("> {path}").yellow()),
+                    _ => continue,
+                }
             }
         }
     }

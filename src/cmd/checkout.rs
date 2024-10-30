@@ -23,7 +23,7 @@ impl Opts {
     }
 }
 
-fn try_checkout(repo: &Repository, reference: Reference<'_>) -> Result<bool, git2::Error> {
+pub fn try_checkout(repo: &Repository, reference: Reference<'_>) -> Result<bool, git2::Error> {
     let tree = reference.peel_to_tree()?.into_object();
 
     if let Err(e) = repo.checkout_tree(&tree, Some(CheckoutBuilder::default().safe())) {
