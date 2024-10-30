@@ -22,7 +22,7 @@ pub fn run(mut repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
 
     repo.stash_save(&signature, &message, Some(StashFlags::INCLUDE_UNTRACKED))?;
 
-    println!("✓ Changes stashed\n");
+    println!("✓ Changes stashed");
 
     Ok(())
 }
