@@ -11,3 +11,4 @@ pub mod push;
 pub mod stash;
 pub mod status;
 pub mod sync;
+pub mod unstash;

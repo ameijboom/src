@@ -41,6 +41,7 @@ enum Cmd {
     List(cmd::list::Opts),
     Diff(cmd::diff::Opts),
     Stash(cmd::stash::Opts),
+    Unstash(cmd::unstash::Opts),
     Branch(cmd::branch::Opts),
     Checkout(cmd::checkout::Opts),
 }
@@ -59,26 +60,29 @@ fn main() {
         let repo = Repository::open_ext(&opts.dir, RepositoryOpenFlags::empty(), [&opts.dir])?;
 
         match opts.cmd {
-            Some(Cmd::Add(opts)) => cmd::add::run(repo, opts),
-            Some(Cmd::Feat(mut opts)) => {
-                opts.message = format!("feat: {}", opts.message);
-                cmd::commit::run(repo, opts)
-            }
-            Some(Cmd::Fix(mut opts)) => {
-                opts.message = format!("fix: {}", opts.message);
-                cmd::commit::run(repo, opts)
-            }
-            Some(Cmd::Commit(opts)) => cmd::commit::run(repo, opts),
-            Some(Cmd::Amend(opts)) => cmd::amend::run(repo, opts),
-            Some(Cmd::Push(opts)) => cmd::push::run(repo, opts),
-            Some(Cmd::Fetch(opts)) => cmd::fetch::run(repo, opts),
-            Some(Cmd::Pull(opts)) => cmd::pull::run(repo, opts),
-            Some(Cmd::Sync(opts)) => cmd::sync::run(repo, opts),
-            Some(Cmd::List(opts)) => cmd::list::run(repo, opts),
-            Some(Cmd::Diff(opts)) => cmd::diff::run(repo, opts),
-            Some(Cmd::Stash(opts)) => cmd::stash::run(repo, opts),
-            Some(Cmd::Branch(opts)) => cmd::branch::run(repo, opts),
-            Some(Cmd::Checkout(opts)) => cmd::checkout::run(repo, opts),
+            Some(cmd) => match cmd {
+                Cmd::Add(opts) => cmd::add::run(repo, opts),
+                Cmd::Feat(mut opts) => {
+                    opts.message = format!("feat: {}", opts.message);
+                    cmd::commit::run(repo, opts)
+                }
+                Cmd::Fix(mut opts) => {
+                    opts.message = format!("fix: {}", opts.message);
+                    cmd::commit::run(repo, opts)
+                }
+                Cmd::Commit(opts) => cmd::commit::run(repo, opts),
+                Cmd::Amend(opts) => cmd::amend::run(repo, opts),
+                Cmd::Push(opts) => cmd::push::run(repo, opts),
+                Cmd::Fetch(opts) => cmd::fetch::run(repo, opts),
+                Cmd::Pull(opts) => cmd::pull::run(repo, opts),
+                Cmd::Sync(opts) => cmd::sync::run(repo, opts),
+                Cmd::List(opts) => cmd::list::run(repo, opts),
+                Cmd::Diff(opts) => cmd::diff::run(repo, opts),
+                Cmd::Stash(opts) => cmd::stash::run(repo, opts),
+                Cmd::Unstash(opts) => cmd::unstash::run(repo, opts),
+                Cmd::Branch(opts) => cmd::branch::run(repo, opts),
+                Cmd::Checkout(opts) => cmd::checkout::run(repo, opts),
+            },
             None => match opts.branch {
                 Some(branch) => cmd::checkout::run(repo, cmd::checkout::Opts::with_branch(branch)),
                 None => cmd::status::run(repo),
