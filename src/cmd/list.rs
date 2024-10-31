@@ -18,6 +18,15 @@ pub struct Opts {
 
     #[clap(long, help = "Disable the pager")]
     no_pager: bool,
+
+    #[clap(subcommand)]
+    cmd: Option<Cmd>,
+}
+
+#[derive(Parser)]
+pub enum Cmd {
+    #[clap(about = "List stashes")]
+    Stash,
 }
 
 fn is_signed(commit: &Commit) -> bool {
@@ -27,60 +36,88 @@ fn is_signed(commit: &Commit) -> bool {
         .unwrap_or(false)
 }
 
-fn check_write(result: Result<(), io::Error>) -> Result<(), io::Error> {
-    match result {
-        Ok(_) => Ok(()),
-        Err(e) if e.kind() == ErrorKind::BrokenPipe => Ok(()),
-        Err(e) => Err(e),
-    }
+macro_rules! check_writeln {
+    ($dst:expr, $($arg:tt)*) => {
+        match std::writeln!($dst, $($arg)*) {
+            Ok(_) => Ok(()),
+            Err(e) if e.kind() == ErrorKind::BrokenPipe => Ok(()),
+            Err(e) => Err(e),
+        }
+    };
 }
 
-fn _run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
-    let mut stdout = io::stdout();
-    let mut revwalk = repo.revwalk()?;
-    revwalk.push_head()?;
-
-    for oid in revwalk {
+fn list_commits(
+    repo: &Repository,
+    walk: impl Iterator<Item = Result<git2::Oid, git2::Error>>,
+    short: bool,
+    mut stdout: impl Write,
+) -> Result<(), Box<dyn Error>> {
+    for oid in walk {
         let id = oid?;
         let commit = repo.find_commit(id)?;
         let created_at = git::parse_local_time(commit.time());
         let signed = if is_signed(&commit) {
             "⚿ ".green()
-        } else if opts.short {
+        } else if short {
             "  ".white()
         } else {
             "".white()
         };
         let message = commit.message().unwrap_or_default().trim();
 
-        if opts.short {
-            check_write(writeln!(
+        if short {
+            check_writeln!(
                 stdout,
                 "{signed}{} {}",
                 utils::short(&id).yellow(),
                 message.split('\n').next().unwrap_or_default()
-            ))?;
+            )?;
         } else {
-            check_write(writeln!(stdout, "{signed}{}", id.to_string().yellow()))?;
-            check_write(write!(
+            check_writeln!(stdout, "{signed}{}", id.to_string().yellow())?;
+            check_writeln!(
                 stdout,
-                "{}\n{}\n\n",
+                "{}\n{}\n",
                 format!("Date: {}", created_at.format("%Y-%m-%d %H:%M")).bright_black(),
                 format!("Author: {}", commit.author()).bright_black(),
-            ))?;
-            check_write(writeln!(
+            )?;
+            check_writeln!(
                 stdout,
                 "{}\n",
                 message
                     .lines()
                     .map(|l| format!("  {l}"))
                     .collect::<Vec<_>>()
-                    .join("\n")
-            ))?;
+                    .join("\n"),
+            )?;
         }
     }
 
     Ok(())
+}
+
+fn _run(mut repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
+    let mut stdout = io::stdout();
+
+    match opts.cmd {
+        Some(cmd) => match cmd {
+            Cmd::Stash => {
+                let mut stashes = vec![];
+
+                repo.stash_foreach(|_, _, oid| {
+                    stashes.push(*oid);
+                    true
+                })?;
+
+                list_commits(&repo, stashes.into_iter().map(Ok), opts.short, &mut stdout)
+            }
+        },
+        None => {
+            let mut revwalk = repo.revwalk()?;
+            revwalk.push_head()?;
+
+            list_commits(&repo, revwalk, opts.short, &mut stdout)
+        }
+    }
 }
 
 pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
