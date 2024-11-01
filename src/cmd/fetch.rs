@@ -2,7 +2,7 @@ use std::error::Error;
 
 use clap::Parser;
 use git2::{BranchType, FetchOptions, Repository};
-use indicatif::ProgressBar;
+use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::{callbacks::remote_callbacks, named::Named, utils};
 
@@ -12,7 +12,9 @@ pub struct Opts {}
 
 pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut stdout = vec![];
-    let mut bar = ProgressBar::new_spinner();
+    let mut bar = ProgressBar::new_spinner().with_style(ProgressStyle::with_template(
+        "{spinner} ({pos}/{len}) {msg}",
+    )?);
 
     let head = repo.head()?;
     let Some(branch) = head.shorthand() else {

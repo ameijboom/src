@@ -3,7 +3,7 @@ use std::error::Error;
 use clap::Parser;
 use colored::Colorize;
 use git2::{Branch, BranchType, ErrorCode, PushOptions, Repository};
-use indicatif::ProgressBar;
+use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::{callbacks::remote_callbacks, named::Named, utils};
 
@@ -69,7 +69,9 @@ pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
         format!(" {branch_name}").purple(),
     );
 
-    let mut bar = ProgressBar::new_spinner();
+    let mut bar = ProgressBar::new_spinner().with_style(ProgressStyle::with_template(
+        "{spinner} ({pos}/{len}) {msg}",
+    )?);
     bar.set_message("Preparing");
 
     let mut out = vec![];

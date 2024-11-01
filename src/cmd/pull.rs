@@ -3,7 +3,7 @@ use std::error::Error;
 use clap::Parser;
 use colored::Colorize;
 use git2::{build::CheckoutBuilder, BranchType, Delta, FetchOptions, Repository};
-use indicatif::ProgressBar;
+use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::{callbacks::remote_callbacks, named::Named, utils};
 
@@ -16,7 +16,9 @@ pub struct Opts {
 
 pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut stdout = vec![];
-    let mut bar = ProgressBar::new_spinner();
+    let mut bar = ProgressBar::new_spinner().with_style(ProgressStyle::with_template(
+        "{spinner} ({pos}/{len}) {msg}",
+    )?);
 
     let mut head = repo.head()?;
     let Some(branch_name) = head.shorthand().map(ToOwned::to_owned) else {
