@@ -113,10 +113,6 @@ pub fn remote_callbacks<'a>(
     let global_state = Arc::new(State::new(bar));
 
     callbacks.credentials(|url, username, _| get_credentials(url, username));
-    callbacks.sideband_progress(|data| {
-        stdout.extend_from_slice(data);
-        true
-    });
 
     let state = Arc::clone(&global_state);
     let re = Regex::new(r"(Counting|Compressing) objects:[ ]+[0-9]+% \(([0-9]+)\/([0-9]+)\)")
@@ -138,6 +134,8 @@ pub fn remote_callbacks<'a>(
 
             state.bar.set_message(kind);
             state.update();
+        } else {
+            stdout.extend_from_slice(line);
         }
 
         true
