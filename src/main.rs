@@ -3,12 +3,11 @@ use std::{io, path::PathBuf};
 use clap::{CommandFactory, Parser, ValueHint};
 use clap_complete::{generate, Shell};
 use colored::Colorize;
+use git::Repo;
 use git2::{Repository, RepositoryOpenFlags};
 
-mod callbacks;
 mod cmd;
 mod git;
-mod named;
 mod select;
 mod utils;
 
@@ -57,7 +56,11 @@ fn main() {
     }
 
     let app = || {
-        let repo = Repository::open_ext(&opts.dir, RepositoryOpenFlags::empty(), [&opts.dir])?;
+        let repo = Repo::from(Repository::open_ext(
+            &opts.dir,
+            RepositoryOpenFlags::empty(),
+            [&opts.dir],
+        )?);
 
         match opts.cmd {
             Some(cmd) => match cmd {

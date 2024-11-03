@@ -1,10 +1,19 @@
 use chrono::{DateTime, Local, TimeZone};
-use git2::{Config, Error, ErrorClass, ErrorCode, Signature};
+use git2::{Error, ErrorClass, ErrorCode};
 
-pub mod commit;
-pub mod index;
-pub mod signer;
-pub mod status;
+mod config;
+mod index;
+mod objects;
+mod remote;
+mod repo;
+mod signer;
+mod status;
+
+pub use config::Config;
+pub use objects::*;
+pub use remote::RemoteOpts;
+pub use repo::{CheckoutError, DiffOpts, Repo};
+pub use status::*;
 
 pub trait Optional<T> {
     fn optional(self) -> Result<Option<T>, Error>;
@@ -20,12 +29,6 @@ impl<T> Optional<T> for Result<T, git2::Error> {
             Err(e) => Err(e),
         }
     }
-}
-
-pub fn signature(config: &Config) -> Result<Signature<'_>, git2::Error> {
-    let name = config.get_string("user.name").optional()?;
-    let email = config.get_string("user.email")?;
-    Signature::now(&name.unwrap_or_default(), &email)
 }
 
 pub fn parse_local_time(time: git2::Time) -> DateTime<Local> {

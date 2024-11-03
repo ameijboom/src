@@ -5,10 +5,12 @@ use std::{
 
 use clap::Parser;
 use colored::Colorize;
-use git2::{Commit, Repository};
 use pager::Pager;
 
-use crate::{git, utils};
+use crate::{
+    git::{Commit, Repo},
+    utils,
+};
 
 #[derive(Parser)]
 #[clap(about = "Show commit logs")]
@@ -29,13 +31,6 @@ pub enum Cmd {
     Stash,
 }
 
-fn is_signed(commit: &Commit) -> bool {
-    commit
-        .header_field_bytes("gpgsig")
-        .map(|sig| !sig.is_empty())
-        .unwrap_or(false)
-}
-
 macro_rules! check_writeln {
     ($dst:expr, $($arg:tt)*) => {
         match std::writeln!($dst, $($arg)*) {
@@ -46,17 +41,14 @@ macro_rules! check_writeln {
     };
 }
 
-fn list_commits(
-    repo: &Repository,
-    walk: impl Iterator<Item = Result<git2::Oid, git2::Error>>,
+fn list_commits<'a>(
+    walk: impl Iterator<Item = Result<Commit<'a>, git2::Error>>,
     short: bool,
     mut stdout: impl Write,
 ) -> Result<(), Box<dyn Error>> {
-    for oid in walk {
-        let id = oid?;
-        let commit = repo.find_commit(id)?;
-        let created_at = git::parse_local_time(commit.time());
-        let signed = if is_signed(&commit) {
+    for commit in walk {
+        let commit = commit?;
+        let signed = if commit.is_signed() {
             "⚿ ".green()
         } else if short {
             "  ".white()
@@ -69,15 +61,15 @@ fn list_commits(
             check_writeln!(
                 stdout,
                 "{signed}{} {}",
-                utils::short(&id).yellow(),
+                utils::short(&commit.id()).yellow(),
                 message.split('\n').next().unwrap_or_default()
             )?;
         } else {
-            check_writeln!(stdout, "{signed}{}", id.to_string().yellow())?;
+            check_writeln!(stdout, "{signed}{}", commit.id().to_string().yellow())?;
             check_writeln!(
                 stdout,
                 "{}\n{}\n",
-                format!("Date: {}", created_at.format("%Y-%m-%d %H:%M")).bright_black(),
+                format!("Date: {}", commit.time().format("%Y-%m-%d %H:%M")).bright_black(),
                 format!("Author: {}", commit.author()).bright_black(),
             )?;
             check_writeln!(
@@ -95,32 +87,24 @@ fn list_commits(
     Ok(())
 }
 
-fn _run(mut repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
+fn _run(mut repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut stdout = io::stdout();
 
     match opts.cmd {
         Some(cmd) => match cmd {
             Cmd::Stash => {
-                let mut stashes = vec![];
-
-                repo.stash_foreach(|_, _, oid| {
-                    stashes.push(*oid);
-                    true
-                })?;
-
-                list_commits(&repo, stashes.into_iter().map(Ok), opts.short, &mut stdout)
+                let stashes = repo.stashes()?;
+                list_commits(stashes, opts.short, &mut stdout)
             }
         },
         None => {
-            let mut revwalk = repo.revwalk()?;
-            revwalk.push_head()?;
-
-            list_commits(&repo, revwalk, opts.short, &mut stdout)
+            let commits = repo.commits()?;
+            list_commits(commits, opts.short, &mut stdout)
         }
     }
 }
 
-pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
+pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     if opts.no_pager {
         _run(repo, opts)
     } else {

@@ -1,40 +1,26 @@
 use std::error::Error;
 
 use clap::Parser;
-use git2::{BranchType, FetchOptions, Repository};
-use indicatif::{ProgressBar, ProgressStyle};
 
-use crate::{callbacks::remote_callbacks, named::Named, utils};
+use crate::{
+    git::{RemoteOpts, Repo},
+    utils,
+};
 
 #[derive(Parser)]
 #[clap(about = "Download objects and refs")]
 pub struct Opts {}
 
-pub fn run(repo: Repository, _opts: Opts) -> Result<(), Box<dyn Error>> {
-    let mut stdout = vec![];
-    let mut bar = ProgressBar::new_spinner().with_style(ProgressStyle::with_template(
-        "{spinner} ({pos}/{len}) {msg}",
-    )?);
-
+pub fn run(repo: Repo, _opts: Opts) -> Result<(), Box<dyn Error>> {
     let head = repo.head()?;
-    let Some(branch) = head.shorthand() else {
-        return Err("invalid name for HEAD".into());
-    };
+    let branch = head.shorthand()?;
 
-    let branch = repo.find_branch(branch, BranchType::Local)?;
+    let branch = repo.find_branch(branch)?;
     let upstream = branch.upstream()?;
-    let remote = utils::parse_remote(upstream.name_checked()?)?;
+    let remote = utils::parse_remote(upstream.name()?)?;
 
     let mut remote = repo.find_remote(remote)?;
-    let callbacks = remote_callbacks(&mut stdout, &mut bar);
-
-    remote.fetch(
-        &[branch.name_checked()?],
-        Some(FetchOptions::new().remote_callbacks(callbacks)),
-        None,
-    )?;
-
-    bar.finish_and_clear();
+    remote.fetch(RemoteOpts::default(), branch.name()?)?;
 
     Ok(())
 }

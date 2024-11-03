@@ -2,13 +2,8 @@ use std::error::Error;
 
 use clap::Parser;
 use colored::Colorize;
-use git2::{Config, Repository};
 
-use crate::{
-    cmd::add::add_callback,
-    git::{commit::Commit, index::Index},
-    utils,
-};
+use crate::{cmd::add::add_callback, git::Repo, utils};
 
 #[derive(Parser)]
 #[clap(about = "Amend recorded changes to the repository")]
@@ -20,27 +15,33 @@ pub struct Opts {
     message: Option<String>,
 }
 
-pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
-    let mut index = Index::build(&repo)?;
+pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
+    let mut index = repo.index()?;
 
     if opts.add_all {
-        index.add(["."].iter(), add_callback)?;
+        index.add(["."], add_callback)?;
         index.write()?;
     }
 
-    let tree = index.write_tree()?;
-    let latest = repo.head()?.peel_to_commit()?;
-    let config = Config::open_default()?;
+    let oid = index.write_tree()?;
+    let mut head = repo.head()?;
+    let (reflog, oid) = {
+        let tree = repo.find_tree(oid)?;
+        let latest = head.find_commit()?;
+        let parent = latest.parent()?.ok_or("unable to amend empty commit")?;
+        let message = opts
+            .message
+            .as_deref()
+            .map(Ok)
+            .unwrap_or_else(|| latest.message())?;
 
-    let message = opts
-        .message
-        .as_deref()
-        .unwrap_or_else(|| latest.message().unwrap_or_default());
-    let commit = Commit::build(&config, &repo, tree);
-    let oid = commit.create(message, Some(&latest.author()), Some(&latest.parent(0)?))?;
+        (
+            format!("commit amended: {message}"),
+            repo.create_commit(&tree, message, Some(&parent))?,
+        )
+    };
 
-    repo.head()?
-        .set_target(oid, &format!("commit: {message}"))?;
+    head.set_target(oid, &reflog)?;
 
     println!("Created {}", utils::short(&oid).yellow());
 

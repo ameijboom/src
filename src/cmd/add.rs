@@ -2,12 +2,8 @@ use std::{error::Error, path::Path};
 
 use clap::{Parser, ValueHint};
 use colored::Colorize;
-use git2::Repository;
 
-use crate::{
-    git::{index::Index, status::Status},
-    select,
-};
+use crate::{git::Repo, select};
 
 #[derive(Parser)]
 #[clap(about = "Add file contents to the index")]
@@ -24,9 +20,10 @@ pub fn add_callback(path: &Path) {
     );
 }
 
-pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
+pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let targets = if opts.targets.is_empty() {
-        let files = Status::build(&repo)?
+        let files = repo
+            .status()?
             .entries()
             .map(|p| p.path().map(|p| p.to_string()))
             .collect::<Result<Vec<_>, _>>()?;
@@ -36,8 +33,9 @@ pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
         opts.targets
     };
 
-    let mut index = Index::build(&repo)?;
-    let count = index.add(targets.iter(), add_callback)?;
+    let mut index = repo.index()?;
+
+    let count = index.add(targets, add_callback)?;
     index.write()?;
 
     if count > 0 {

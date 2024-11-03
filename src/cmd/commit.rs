@@ -2,13 +2,8 @@ use std::error::Error;
 
 use clap::Parser;
 use colored::Colorize;
-use git2::{Config, Repository};
 
-use crate::{
-    cmd::{add::add_callback, branch::create_branch_checkout},
-    git::{commit::Commit, index::Index},
-    utils,
-};
+use crate::{cmd::add::add_callback, git::Repo, utils};
 
 #[derive(Parser)]
 #[clap(about = "Record changes to the repository")]
@@ -35,23 +30,24 @@ fn branch_name(message: &str) -> String {
     message.trim().replace(' ', "-")
 }
 
-pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
+pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     if opts.branch {
-        create_branch_checkout(&repo, &branch_name(&opts.message))?;
+        let head = repo.head()?;
+        let commit = head.find_commit()?;
+        let branch = repo.create_branch(&branch_name(&opts.message), &commit)?;
+
+        repo.checkout(&branch.into())?;
     }
 
-    let mut index = Index::build(&repo)?;
+    let mut index = repo.index()?;
 
     if opts.add_all {
-        index.add(["."].iter(), add_callback)?;
+        index.add(["."], add_callback)?;
         index.write()?;
     }
 
-    let tree = index.write_tree()?;
-    let config = Config::open_default()?;
-
-    let commit = Commit::build(&config, &repo, tree);
-    let oid = commit.create(&opts.message, None, None)?;
+    let tree = repo.find_tree(index.write_tree()?)?;
+    let oid = repo.create_commit(&tree, &opts.message, None)?;
 
     repo.head()?
         .set_target(oid, &format!("commit: {}", opts.message))?;

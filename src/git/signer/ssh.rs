@@ -3,42 +3,59 @@ use std::{
     process::{Command, Stdio},
 };
 
-use git2::Config;
 use tempfile::NamedTempFile;
 
-use crate::git::Optional;
+use crate::git::{config::GpgFormat, Config};
 
 use super::Signer;
 
-pub struct SshSigner {
-    signing_key: String,
-    program: Option<String>,
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("missing signing key")]
+    MissingSigningKey,
 }
 
-impl SshSigner {
-    pub fn new(signing_key: String, program: Option<String>) -> Self {
+pub struct SshSigner<'c> {
+    signing_key: &'c str,
+    program: Option<&'c str>,
+}
+
+impl<'c> SshSigner<'c> {
+    pub fn new(signing_key: &'c str, program: Option<&'c str>) -> Self {
         Self {
             signing_key,
             program,
         }
     }
 
-    pub fn from_config(config: &Config) -> Result<Self, git2::Error> {
-        let program = config.get_string("gpg.ssh.program").optional()?;
-        let signing_key = config.get_string("user.signingkey")?;
+    pub fn from_config(config: &'c Config) -> Result<Self, Error> {
+        let signing_key = config
+            .user
+            .signing_key
+            .as_ref()
+            .ok_or(Error::MissingSigningKey)?;
 
-        Ok(Self::new(signing_key, program))
+        Ok(Self::new(
+            signing_key,
+            config.gpg.format.as_ref().and_then(|format| match format {
+                GpgFormat::Ssh => config
+                    .gpg
+                    .config
+                    .get("ssh")
+                    .and_then(|config| config.program.as_deref()),
+            }),
+        ))
     }
 }
 
-impl Signer for SshSigner {
+impl<'c> Signer for SshSigner<'c> {
     fn sign(&self, content: &git2::Buf) -> Result<String, Box<dyn std::error::Error>> {
         // Aparently, we have to write this to a file
         let mut tmp = NamedTempFile::new()?;
         tmp.write_all(self.signing_key.as_bytes())?;
         tmp.flush()?;
 
-        let program = self.program.as_deref().unwrap_or("ssh");
+        let program = self.program.unwrap_or("ssh");
 
         // See: https://github.com/git/git/blob/34b6ce9b30747131b6e781ff718a45328aa887d0/gpg-interface.c#L1072
         let mut child = Command::new(program)

@@ -5,8 +5,10 @@ use std::{
 };
 
 use clap::{Parser, ValueHint};
-use git2::{Diff, DiffFindOptions, DiffFormat, DiffOptions, Repository};
+use git2::{Diff, DiffFormat};
 use which::which;
+
+use crate::git::{DiffOpts, Repo};
 
 fn write_diff(diff: &Diff, mut stdout: impl Write) -> Result<(), git2::Error> {
     diff.print(DiffFormat::Patch, |_delta, _hunk, line| {
@@ -43,32 +45,16 @@ pub struct Opts {
     pub staged: bool,
 }
 
-pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
+pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let head = repo.head()?;
-    let tree = head.peel_to_tree()?;
-
-    let mut diff_opts = DiffOptions::new();
-    diff_opts
-        .force_text(true)
-        .ignore_whitespace(true)
-        .ignore_whitespace_change(false)
-        .include_ignored(false)
-        .include_untracked(true)
-        .recurse_untracked_dirs(true)
-        .show_untracked_content(true);
+    let tree = head.find_tree()?;
+    let mut diff_opts = DiffOpts::default().with_staged(opts.staged);
 
     if let Some(filter) = opts.filter {
-        diff_opts.pathspec(filter);
+        diff_opts = diff_opts.with_pathspec(&filter);
     }
 
-    let mut diff = if opts.staged {
-        repo.diff_tree_to_index(Some(&tree), None, Some(&mut diff_opts))?
-    } else {
-        repo.diff_tree_to_workdir_with_index(Some(&tree), Some(&mut diff_opts))?
-    };
-
-    let mut find_opts = DiffFindOptions::new();
-    diff.find_similar(Some(find_opts.renames(true).copies(true)))?;
+    let diff = repo.diff(&tree, diff_opts)?;
 
     if opts.patch {
         print_patch(&diff)?;

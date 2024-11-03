@@ -1,7 +1,8 @@
 use std::error::Error;
 
 use clap::Parser;
-use git2::{build::CheckoutBuilder, Repository, StashApplyOptions};
+
+use crate::git::Repo;
 
 #[derive(Parser)]
 #[clap(about = "Apply the changes from the last stash")]
@@ -10,15 +11,8 @@ pub struct Opts {
     index: usize,
 }
 
-pub fn run(mut repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
-    let mut cb = CheckoutBuilder::default();
-    cb.safe();
-
-    repo.stash_pop(
-        opts.index,
-        Some(StashApplyOptions::default().checkout_options(cb)),
-    )?;
-
+pub fn run(mut repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
+    repo.pop_stash(opts.index)?;
     println!("✓ Changes applied");
 
     Ok(())

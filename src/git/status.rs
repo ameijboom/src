@@ -1,24 +1,10 @@
-use git2::{Repository, StatusEntry, StatusOptions, Statuses};
+use git2::{StatusEntry, Statuses};
 
-pub struct Status<'a> {
-    statuses: Statuses<'a>,
-}
+pub struct Status<'a>(pub Statuses<'a>);
 
 impl<'a> Status<'a> {
-    pub fn build(repo: &'a Repository) -> Result<Self, git2::Error> {
-        Ok(Self {
-            statuses: repo.statuses(Some(
-                StatusOptions::new()
-                    .include_ignored(false)
-                    .include_untracked(true)
-                    .recurse_untracked_dirs(true)
-                    .exclude_submodules(true),
-            ))?,
-        })
-    }
-
     pub fn entries(&'a self) -> impl Iterator<Item = Entry<'a>> {
-        self.statuses
+        self.0
             .into_iter()
             .filter(|e| e.status() != git2::Status::CURRENT)
             .map(Entry::from)

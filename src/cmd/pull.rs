@@ -2,10 +2,12 @@ use std::error::Error;
 
 use clap::Parser;
 use colored::Colorize;
-use git2::{build::CheckoutBuilder, BranchType, Delta, FetchOptions, Repository};
-use indicatif::{ProgressBar, ProgressStyle};
+use git2::Delta;
 
-use crate::{callbacks::remote_callbacks, named::Named, utils};
+use crate::{
+    git::{DiffOpts, RemoteOpts, Repo},
+    utils,
+};
 
 #[derive(Parser, Default)]
 #[clap(about = "Pull changes")]
@@ -14,39 +16,23 @@ pub struct Opts {
     details: bool,
 }
 
-pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
-    let mut stdout = vec![];
-    let mut bar = ProgressBar::new_spinner().with_style(ProgressStyle::with_template(
-        "{spinner} ({pos}/{len}) {msg}",
-    )?);
-
+pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut head = repo.head()?;
-    let Some(branch_name) = head.shorthand().map(ToOwned::to_owned) else {
-        return Err("invalid name for HEAD".into());
-    };
+    let branch_name = head.shorthand()?.to_string();
 
-    let branch = repo.find_branch(&branch_name, BranchType::Local)?;
+    let branch = repo.find_branch(&branch_name)?;
     let upstream = branch.upstream()?;
-    let remote = utils::parse_remote(upstream.name_checked()?)?;
+    let remote = utils::parse_remote(upstream.name()?)?;
 
     let mut remote = repo.find_remote(remote)?;
-    let callbacks = remote_callbacks(&mut stdout, &mut bar);
+    remote.fetch(RemoteOpts::default(), &branch_name)?;
 
-    remote.fetch(
-        &[branch.name_checked()?],
-        Some(FetchOptions::new().remote_callbacks(callbacks)),
-        None,
-    )?;
-
-    bar.finish_and_clear();
-
-    let branch = repo.find_branch(&branch_name, BranchType::Local)?;
-    let Some(oid) = branch.upstream()?.into_reference().target() else {
+    let Some(oid) = branch.upstream()?.target() else {
         return Err("invalid oid for upstream".into());
     };
 
     let commit = repo.find_annotated_commit(oid)?;
-    let (analysis, _) = repo.merge_analysis(&[&commit])?;
+    let (analysis, _) = repo.merge_analysis(&commit)?;
 
     if analysis.is_up_to_date() {
         println!("Already up to date");
@@ -56,7 +42,7 @@ pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
     }
 
     head.set_target(oid, "fast-forward")?;
-    repo.checkout_head(Some(CheckoutBuilder::default().force()))?;
+    repo.checkout(&head)?;
 
     println!(
         "Updated {} to {}",
@@ -64,8 +50,8 @@ pub fn run(repo: Repository, opts: Opts) -> Result<(), Box<dyn Error>> {
         utils::short(&oid).yellow()
     );
 
-    let tree = head.peel_to_tree()?;
-    let diff = repo.diff_tree_to_workdir_with_index(Some(&tree), None)?;
+    let tree = head.find_tree()?;
+    let diff = repo.diff(&tree, DiffOpts::default())?;
     let stats = diff.stats()?;
     let mut indicators = vec![];
 

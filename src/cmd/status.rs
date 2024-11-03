@@ -1,15 +1,11 @@
 use std::error::Error;
 
 use colored::Colorize;
-use git2::{ErrorCode, Repository, RepositoryState};
+use git2::{ErrorCode, RepositoryState};
 
-use crate::{
-    git::status::{Change, EntryStatus, Status},
-    named::Named,
-    utils,
-};
+use crate::git::{Change, EntryStatus, Repo};
 
-fn show_branch(repo: &Repository) -> Result<(), Box<dyn Error>> {
+fn show_branch(repo: &Repo) -> Result<(), Box<dyn Error>> {
     let indicators = remote_state_indicators(repo)
         .ok()
         .flatten()
@@ -19,11 +15,12 @@ fn show_branch(repo: &Repository) -> Result<(), Box<dyn Error>> {
     match repo.head() {
         Ok(head) => {
             let name = if head.is_branch() || head.is_tag() {
-                head.shorthand().map(ToOwned::to_owned)
+                head.shorthand()?.to_string()
             } else {
-                head.target().map(|oid| utils::short(&oid))
-            }
-            .unwrap_or_else(|| "<unknown>".to_owned());
+                head.target()
+                    .map(|oid| oid.to_string())
+                    .unwrap_or_else(|| "<unknown>".to_string())
+            };
 
             println!("On {}{indicators}", format!(" {name}").purple());
         }
@@ -36,10 +33,10 @@ fn show_branch(repo: &Repository) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn remote_state_indicators(repo: &Repository) -> Result<Option<String>, Box<dyn Error>> {
+fn remote_state_indicators(repo: &Repo) -> Result<Option<String>, Box<dyn Error>> {
     let head = repo.head()?;
-    let remote = utils::find_remote_ref(repo, head.name_checked()?)?.and_then(|r| r.target());
-    let (Some(local), Some(remote)) = (head.target(), remote) else {
+    let upstream = repo.find_upstream_branch(&head)?.and_then(|r| r.target());
+    let (Some(local), Some(remote)) = (head.target(), upstream) else {
         return Ok(None);
     };
 
@@ -62,7 +59,7 @@ fn remote_state_indicators(repo: &Repository) -> Result<Option<String>, Box<dyn 
     }
 }
 
-fn show_state(repo: &Repository) -> Result<(), Box<dyn Error>> {
+fn show_state(repo: &Repo) -> Result<(), Box<dyn Error>> {
     match repo.state() {
         RepositoryState::Merge => println!("In merge"),
         RepositoryState::Revert | RepositoryState::RevertSequence => println!("In revert"),
@@ -80,8 +77,8 @@ fn show_state(repo: &Repository) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn show_changes(repo: &Repository) -> Result<(), Box<dyn Error>> {
-    let status = Status::build(repo)?;
+fn show_changes(repo: &Repo) -> Result<(), Box<dyn Error>> {
+    let status = repo.status()?;
     let entries = status.entries().collect::<Vec<_>>();
 
     if entries.is_empty() {
@@ -115,7 +112,7 @@ fn show_changes(repo: &Repository) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn run(repo: Repository) -> Result<(), Box<dyn Error>> {
+pub fn run(repo: Repo) -> Result<(), Box<dyn Error>> {
     show_branch(&repo)?;
     show_state(&repo)?;
     show_changes(&repo)?;
