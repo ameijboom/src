@@ -3,7 +3,11 @@ use std::error::Error;
 use clap::Parser;
 use colored::Colorize;
 
-use crate::{cmd::add::add_callback, git::Repo, utils};
+use crate::{
+    cmd::add::add_callback,
+    git::{DiffOpts, Repo},
+    utils,
+};
 
 #[derive(Parser)]
 #[clap(about = "Record changes to the repository")]
@@ -39,6 +43,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         repo.checkout(&branch.into())?;
     }
 
+    let old_tree = repo.head()?.find_tree()?;
     let mut index = repo.index()?;
 
     if opts.add_all {
@@ -52,7 +57,25 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     repo.head()?
         .set_target(oid, &format!("commit: {}", opts.message))?;
 
-    println!("Created {}", utils::short_hash(oid).yellow());
+    let diff = repo.diff(&old_tree, DiffOpts::default())?;
+    let stats = diff.stats()?;
+    let mut indicators = vec![];
+
+    if stats.insertions() > 0 {
+        indicators.push(format!("+{}", stats.insertions()).green().to_string());
+    }
+
+    if stats.deletions() > 0 {
+        indicators.push(format!("-{}", stats.deletions()).red().to_string());
+    }
+
+    println!(
+        "Created {} {}{}{}",
+        utils::short_hash(oid).yellow(),
+        "(".bright_black(),
+        indicators.join(" "),
+        ")".bright_black()
+    );
 
     Ok(())
 }

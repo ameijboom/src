@@ -5,7 +5,7 @@ use colored::Colorize;
 use git2::Delta;
 
 use crate::{
-    git::{DiffOpts, RemoteOpts, Repo},
+    git::{DiffOpts, RemoteOpts, Repo, Tree},
     utils,
 };
 
@@ -14,6 +14,43 @@ use crate::{
 pub struct Opts {
     #[clap(short, long, help = "Show detailed output")]
     details: bool,
+}
+
+pub fn show_changes(repo: &Repo, tree: &Tree<'_>, detailed: bool) -> Result<(), git2::Error> {
+    let diff = repo.diff(tree, DiffOpts::default())?;
+    let stats = diff.stats()?;
+    let mut indicators = vec![];
+
+    if stats.insertions() > 0 {
+        indicators.push(format!("+{}", stats.insertions()).green().to_string());
+    }
+
+    if stats.deletions() > 0 {
+        indicators.push(format!("-{}", stats.deletions()).red().to_string());
+    }
+
+    if detailed {
+        for delta in diff.deltas() {
+            if let Some(path) = delta.new_file().path().and_then(|p| p.to_str()) {
+                match delta.status() {
+                    Delta::Added => println!("  {}", format!("+ {path}").green()),
+                    Delta::Deleted => println!("  {}", format!("- {path}").red()),
+                    Delta::Modified => println!("  {}", format!("~ {path}").yellow()),
+                    Delta::Renamed => println!("  {}", format!("> {path}").yellow()),
+                    _ => continue,
+                }
+            }
+        }
+    }
+
+    println!(
+        "Changes {}{}{}",
+        "(".bright_black(),
+        indicators.join(" "),
+        ")".bright_black()
+    );
+
+    Ok(())
 }
 
 pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
@@ -53,38 +90,5 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         utils::shorten(repo.find_commit(oid)?.message()?, 50),
     );
 
-    let diff = repo.diff(&old_tree, DiffOpts::default())?;
-    let stats = diff.stats()?;
-    let mut indicators = vec![];
-
-    if stats.insertions() > 0 {
-        indicators.push(format!("+{}", stats.insertions()).green().to_string());
-    }
-
-    if stats.deletions() > 0 {
-        indicators.push(format!("-{}", stats.deletions()).red().to_string());
-    }
-
-    if opts.details {
-        for delta in diff.deltas() {
-            if let Some(path) = delta.new_file().path().and_then(|p| p.to_str()) {
-                match delta.status() {
-                    Delta::Added => println!("  {}", format!("+ {path}").green()),
-                    Delta::Deleted => println!("  {}", format!("- {path}").red()),
-                    Delta::Modified => println!("  {}", format!("~ {path}").yellow()),
-                    Delta::Renamed => println!("  {}", format!("> {path}").yellow()),
-                    _ => continue,
-                }
-            }
-        }
-    }
-
-    println!(
-        "Changes {}{}{}",
-        "(".bright_black(),
-        indicators.join(" "),
-        ")".bright_black()
-    );
-
-    Ok(())
+    Ok(show_changes(&repo, &old_tree, opts.details)?)
 }
