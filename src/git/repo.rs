@@ -126,12 +126,22 @@ impl Repo {
             .map(Into::into)
     }
 
+    pub fn checkout_tree(&self, Tree(tree): &Tree<'_>, force: bool) -> Result<(), git2::Error> {
+        let mut cb = CheckoutBuilder::default();
+
+        if force {
+            cb.force();
+        } else {
+            cb.safe();
+        }
+
+        self.repo.checkout_tree(tree.as_object(), Some(&mut cb))
+    }
+
     pub fn checkout(&self, reference: &Ref<'_>) -> Result<(), CheckoutError> {
         let tree = reference.find_tree()?;
-        let object = tree.0.into_object();
 
-        self.repo
-            .checkout_tree(&object, Some(CheckoutBuilder::default().safe()))?;
+        self.checkout_tree(&tree, false)?;
         self.repo.set_head_bytes(reference.0.name_bytes())?;
 
         Ok(())

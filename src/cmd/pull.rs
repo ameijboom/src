@@ -27,7 +27,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut remote = repo.find_remote(remote)?;
     remote.fetch(RemoteOpts::default(), &branch_name)?;
 
-    let Some(oid) = branch.upstream()?.target() else {
+    let Some(oid) = upstream.target() else {
         return Err("invalid oid for upstream".into());
     };
 
@@ -41,8 +41,10 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         return Err("unsupported operation (no fast-forward)".into());
     }
 
+    let old_tree = head.find_tree()?;
     let target = head.set_target(oid, "fast-forward")?;
-    repo.checkout(&target)?;
+
+    repo.checkout_tree(&target.find_tree()?, true)?;
 
     println!(
         "Updated {} to {}",
@@ -50,8 +52,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         utils::short(&oid).yellow()
     );
 
-    let tree = target.find_tree()?;
-    let diff = repo.diff(&tree, DiffOpts::default())?;
+    let diff = repo.diff(&old_tree, DiffOpts::default())?;
     let stats = diff.stats()?;
     let mut indicators = vec![];
 
