@@ -41,8 +41,8 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         return Err("unsupported operation (no fast-forward)".into());
     }
 
-    head.set_target(oid, "fast-forward")?;
-    repo.checkout(&head)?;
+    let target = head.set_target(oid, "fast-forward")?;
+    repo.checkout(&target)?;
 
     println!(
         "Updated {} to {}",
@@ -50,7 +50,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         utils::short(&oid).yellow()
     );
 
-    let tree = head.find_tree()?;
+    let tree = target.find_tree()?;
     let diff = repo.diff(&tree, DiffOpts::default())?;
     let stats = diff.stats()?;
     let mut indicators = vec![];

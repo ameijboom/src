@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     env,
     error::Error,
     str::FromStr,
@@ -6,6 +7,7 @@ use std::{
         atomic::{AtomicUsize, Ordering},
         Arc,
     },
+    time::Duration,
 };
 
 use git2::{Cred, Direction, FetchOptions, PushOptions, RemoteCallbacks};
@@ -54,6 +56,7 @@ struct State<'a> {
     push: Progress,
     count: Progress,
     compress: Progress,
+    resolve: Progress,
 }
 
 impl<'a> State<'a> {
@@ -64,6 +67,7 @@ impl<'a> State<'a> {
             push: Progress::default(),
             count: Progress::default(),
             compress: Progress::default(),
+            resolve: Progress::default(),
         }
     }
 
@@ -71,7 +75,13 @@ impl<'a> State<'a> {
         let mut total = 0;
         let mut current = 0;
 
-        for progress in [&self.pack, &self.push, &self.count, &self.compress] {
+        for progress in [
+            &self.pack,
+            &self.push,
+            &self.count,
+            &self.compress,
+            &self.resolve,
+        ] {
             total += progress.total.load(Ordering::Relaxed);
             current += progress.current.load(Ordering::Relaxed);
         }
@@ -79,12 +89,18 @@ impl<'a> State<'a> {
         (current, total)
     }
 
-    fn update(&self) {
+    fn update(&self, message: impl Into<Cow<'static, str>>) {
         let (current, total) = self.progress();
 
         self.bar.set_length(total as u64);
         self.bar.set_position(current as u64);
-        self.bar.tick();
+
+        if total > 0 {
+            self.bar
+                .set_message(format!("({current}/{total}) {}", message.into()));
+        } else {
+            self.bar.set_message(message);
+        }
     }
 }
 
@@ -113,10 +129,13 @@ pub struct RemoteOpts {
 
 impl Default for RemoteOpts {
     fn default() -> Self {
+        let bar = ProgressBar::new_spinner()
+            .with_style(ProgressStyle::with_template("{spinner} {msg}").unwrap());
+        bar.enable_steady_tick(Duration::from_millis(50));
+
         Self {
             stdout: vec![],
-            bar: ProgressBar::new_spinner()
-                .with_style(ProgressStyle::with_template("{spinner} ({pos}/{len}) {msg}").unwrap()),
+            bar,
         }
     }
 }
@@ -130,8 +149,10 @@ impl RemoteOpts {
         callbacks.credentials(|url, username, _| get_credentials(url, username));
 
         let state = Arc::clone(&global_state);
-        let re = Regex::new(r"(Counting|Compressing) objects:[ ]+[0-9]+% \(([0-9]+)\/([0-9]+)\)")
-            .expect("invalid regex");
+        let re = Regex::new(
+            r"(Counting|Compressing|Resolving) [A-Za-z]+:[ ]+[0-9]+% \(([0-9]+)\/([0-9]+)\)",
+        )
+        .expect("invalid regex");
 
         callbacks.sideband_progress(move |line| {
             if let Some((kind, current, total)) = parse_sideband_progress(&re, line) {
@@ -144,11 +165,14 @@ impl RemoteOpts {
                         state.compress.current.store(current, Ordering::Relaxed);
                         state.compress.total.store(total, Ordering::Relaxed);
                     }
+                    "Resolving" => {
+                        state.resolve.current.store(current, Ordering::Relaxed);
+                        state.resolve.total.store(total, Ordering::Relaxed);
+                    }
                     _ => {}
                 }
 
-                state.bar.set_message(kind);
-                state.update();
+                state.update(kind);
             } else {
                 stdout.extend_from_slice(line);
             }
@@ -159,19 +183,17 @@ impl RemoteOpts {
         let state = Arc::clone(&global_state);
 
         callbacks.pack_progress(move |_stage, current, total| {
-            state.bar.set_message("Packing");
             state.pack.current.store(current, Ordering::Relaxed);
             state.pack.total.store(total, Ordering::Relaxed);
-            state.update();
+            state.update("Packing");
         });
 
         let state = Arc::clone(&global_state);
 
         callbacks.push_transfer_progress(move |current, total, _bytes| {
-            state.bar.set_message("Pushing");
             state.push.current.store(current, Ordering::Relaxed);
             state.push.total.store(total, Ordering::Relaxed);
-            state.update();
+            state.update("Pushing");
         });
 
         callbacks
