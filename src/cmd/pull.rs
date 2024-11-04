@@ -27,7 +27,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut remote = repo.find_remote(remote)?;
     remote.fetch(RemoteOpts::default(), &branch_name)?;
 
-    let Some(oid) = upstream.target() else {
+    let Some(oid) = branch.upstream()?.target() else {
         return Err("invalid oid for upstream".into());
     };
 
@@ -47,9 +47,10 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     repo.checkout_tree(&target.find_tree()?, true)?;
 
     println!(
-        "Updated {} to {}",
+        "Updated {} to {}: {}",
         format!(" {branch_name}").purple(),
-        utils::short(&oid).yellow()
+        utils::short_hash(oid).yellow(),
+        utils::shorten(repo.find_commit(oid)?.message()?, 50),
     );
 
     let diff = repo.diff(&old_tree, DiffOpts::default())?;
@@ -64,13 +65,6 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         indicators.push(format!("-{}", stats.deletions()).red().to_string());
     }
 
-    println!(
-        "Changes {}{}{}",
-        "(".bright_black(),
-        indicators.join(" "),
-        ")".bright_black()
-    );
-
     if opts.details {
         for delta in diff.deltas() {
             if let Some(path) = delta.new_file().path().and_then(|p| p.to_str()) {
@@ -84,6 +78,13 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
             }
         }
     }
+
+    println!(
+        "Changes {}{}{}",
+        "(".bright_black(),
+        indicators.join(" "),
+        ")".bright_black()
+    );
 
     Ok(())
 }

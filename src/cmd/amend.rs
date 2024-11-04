@@ -43,7 +43,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
 
     head.set_target(oid, &reflog)?;
 
-    println!("Created {}", utils::short(&oid).yellow());
+    println!("Created {}", utils::short_hash(oid).yellow());
 
     Ok(())
 }

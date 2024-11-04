@@ -61,7 +61,7 @@ fn list_commits<'a>(
             check_writeln!(
                 stdout,
                 "{signed}{} {}",
-                utils::short(&commit.id()).yellow(),
+                utils::short_hash(commit.id()).yellow(),
                 message.split('\n').next().unwrap_or_default()
             )?;
         } else {

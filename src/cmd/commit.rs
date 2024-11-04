@@ -52,7 +52,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     repo.head()?
         .set_target(oid, &format!("commit: {}", opts.message))?;
 
-    println!("Created {}", utils::short(&oid).yellow());
+    println!("Created {}", utils::short_hash(oid).yellow());
 
     Ok(())
 }

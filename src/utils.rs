@@ -1,4 +1,4 @@
-use std::string::FromUtf8Error;
+use std::{fmt::Display, string::FromUtf8Error};
 
 use git2::Oid;
 
@@ -28,6 +28,19 @@ pub fn parse_remote(refname: &str) -> Result<&str, ParseRemoteError> {
     Ok(remote)
 }
 
-pub fn short(oid: &Oid) -> String {
+pub fn shorten(s: impl Display, len: usize) -> String {
+    let s = s.to_string();
+
+    if s.len() <= len {
+        return s;
+    }
+
+    format!(
+        "{}...",
+        s.to_string().chars().take(len - 3).collect::<String>()
+    )
+}
+
+pub fn short_hash(oid: Oid) -> String {
     oid.to_string().chars().take(7).collect()
 }

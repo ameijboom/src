@@ -14,7 +14,7 @@ pub fn run(mut repo: Repo, _opts: Opts) -> Result<(), Box<dyn Error>> {
         let commit = head.find_commit()?;
         let message = commit.message().unwrap_or_default();
 
-        format!("{} {message}", utils::short(&commit.id()))
+        format!("{} {message}", utils::short_hash(commit.id()))
     };
 
     repo.save_stash(&message)?;
