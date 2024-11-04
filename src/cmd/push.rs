@@ -72,7 +72,9 @@ pub fn run(repo: Repo, _opts: Opts) -> Result<(), Box<dyn Error>> {
 
     println!("✓ done");
 
-    if let Ok(msg) = std::str::from_utf8(&reply.stdout).map(|s| s.trim()) {
+    if let Ok(msg) = std::str::from_utf8(&reply.stdout)
+        .map(|s| s.trim_matches(|c: char| c.is_whitespace() || c == '\0'))
+    {
         if !msg.is_empty() {
             println!("\nReply:");
             println!("{}", msg.bright_black());
