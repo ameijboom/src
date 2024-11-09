@@ -28,10 +28,14 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
             .map(|p| p.path().map(|p| p.to_string()))
             .collect::<Result<Vec<_>, _>>()?;
 
-        select::multi(&files)?
+        select::multi(&files, Some("src diff {}"))?
     } else {
         opts.targets
     };
+
+    if targets.is_empty() {
+        return Err("No targets specified".into());
+    }
 
     let mut index = repo.index()?;
 

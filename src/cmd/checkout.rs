@@ -44,7 +44,7 @@ fn branch_names(repo: &Repo) -> Result<Vec<String>, Box<dyn Error>> {
 pub fn run(mut repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let branch_name = match opts.branch {
         Some(branch) => branch,
-        None => match select::single(&branch_names(&repo)?)? {
+        None => match select::single(&branch_names(&repo)?, Some("src list commit {}"))? {
             Some(branch) => branch,
             None => return Err("No branch selected".into()),
         },

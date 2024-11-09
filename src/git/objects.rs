@@ -80,6 +80,10 @@ impl<'a> Branch<'a> {
     pub fn target(&self) -> Option<git2::Oid> {
         self.0.get().target()
     }
+
+    pub fn into_ref(self) -> Ref<'a> {
+        Ref(self.0.into_reference())
+    }
 }
 
 pub struct Commit<'a>(pub git2::Commit<'a>);

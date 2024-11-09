@@ -82,9 +82,8 @@ fn parse_gpg_config(config: &git2::Config) -> Result<HashMap<String, GpgConfig>,
 
         let value: &mut GpgConfig = gpg.entry(components[1].to_string()).or_default();
 
-        match components[2] {
-            "program" => value.program = string(config, name)?,
-            _ => (),
+        if components[2] == "program" {
+            value.program = string(config, name)?
         }
     }
 

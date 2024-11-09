@@ -29,6 +29,12 @@ pub struct Opts {
 pub enum Cmd {
     #[clap(about = "List stashes")]
     Stash,
+
+    #[clap(about = "List commits")]
+    Commit {
+        #[clap(help = "Target branch or tag")]
+        target: Option<String>,
+    },
 }
 
 macro_rules! check_writeln {
@@ -87,9 +93,18 @@ fn _run(mut repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
                 let stashes = repo.stashes()?;
                 list_commits(stashes, opts.short, &mut stdout)
             }
+            Cmd::Commit { target } => {
+                let target = match target {
+                    Some(target) => repo.find_branch(&target).map(|b| b.into_ref()),
+                    None => repo.head(),
+                }?;
+                let commits = repo.commits(&target)?;
+
+                list_commits(commits, opts.short, &mut stdout)
+            }
         },
         None => {
-            let commits = repo.commits()?;
+            let commits = repo.commits(&repo.head()?)?;
             list_commits(commits, opts.short, &mut stdout)
         }
     }

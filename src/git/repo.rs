@@ -166,9 +166,14 @@ impl Repo {
 
     pub fn commits(
         &self,
+        reference: &Ref<'_>,
     ) -> Result<impl Iterator<Item = Result<Commit<'_>, git2::Error>>, git2::Error> {
         let mut walker = self.repo.revwalk()?;
-        walker.push_head()?;
+        walker.push_ref(
+            reference
+                .name()
+                .map_err(|e| git2::Error::new(ErrorCode::User, ErrorClass::None, e.to_string()))?,
+        )?;
 
         Ok(walker.map(|oid| oid.and_then(|oid| self.find_commit(oid))))
     }
