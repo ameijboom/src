@@ -4,7 +4,7 @@ use clap::Parser;
 
 use crate::{
     git::{CheckoutError, Ref, Repo},
-    select,
+    term::select,
 };
 
 #[derive(Parser)]

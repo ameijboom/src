@@ -1,7 +1,5 @@
 use std::{fmt::Display, string::FromUtf8Error};
 
-use git2::Oid;
-
 #[derive(Debug, thiserror::Error)]
 pub enum FindRemoteError {
     #[error("failed to find remote: {0}")]
@@ -39,8 +37,4 @@ pub fn shorten(s: impl Display, len: usize) -> String {
         "{}...",
         s.to_string().chars().take(len - 3).collect::<String>()
     )
-}
-
-pub fn short_hash(oid: Oid) -> String {
-    oid.to_string().chars().take(7).collect()
 }

@@ -2,7 +2,7 @@ use std::error::Error;
 
 use clap::Parser;
 
-use crate::{git::Repo, utils};
+use crate::git::Repo;
 
 #[derive(Parser)]
 #[clap(about = "Stash the changes in a dirty working directory away")]
@@ -14,7 +14,7 @@ pub fn run(mut repo: Repo, _opts: Opts) -> Result<(), Box<dyn Error>> {
         let commit = head.find_commit()?;
         let message = commit.message().unwrap_or_default();
 
-        format!("{} {message}", utils::short_hash(commit.id()))
+        format!("{} {message}", commit.id())
     };
 
     repo.save_stash(&message)?;

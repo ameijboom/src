@@ -6,6 +6,7 @@ use git2::Delta;
 
 use crate::{
     git::{DiffOpts, RemoteOpts, Repo, Tree},
+    term::render,
     utils,
 };
 
@@ -85,8 +86,8 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
 
     println!(
         "Updated {} to {}: {}",
-        format!(" {branch_name}").purple(),
-        utils::short_hash(oid).yellow(),
+        render::branch(&branch_name),
+        render::commit(oid),
         utils::shorten(repo.find_commit(oid)?.message()?, 50),
     );
 

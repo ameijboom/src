@@ -1,13 +1,12 @@
 use std::error::Error;
 
 use clap::Parser;
-use colored::Colorize;
 use inquire::{
     ui::{Color, RenderConfig},
     Confirm,
 };
 
-use crate::{cmd::add::add_callback, git::Repo, utils};
+use crate::{cmd::add::add_callback, git::Repo, term::render};
 
 #[derive(Parser)]
 #[clap(about = "Amend recorded changes to the repository")]
@@ -66,7 +65,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
 
     head.set_target(oid, &format!("commit amended: {message}"))?;
 
-    println!("Created {}", utils::short_hash(oid).yellow());
+    println!("Created {}", render::commit(oid));
 
     Ok(())
 }

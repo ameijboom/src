@@ -6,7 +6,7 @@ use colored::Colorize;
 use crate::{
     cmd::add::add_callback,
     git::{DiffOpts, Repo},
-    utils,
+    term::render,
 };
 
 #[derive(Parser)]
@@ -71,7 +71,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
 
     println!(
         "Created {} {}{}{}",
-        utils::short_hash(oid).yellow(),
+        render::commit(oid),
         "(".bright_black(),
         indicators.join(" "),
         ")".bright_black()

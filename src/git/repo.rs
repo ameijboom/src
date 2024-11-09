@@ -1,8 +1,8 @@
 use std::error::Error;
 
 use git2::{
-    build::CheckoutBuilder, BranchType, DiffFindOptions, DiffOptions, ErrorClass, ErrorCode,
-    StashApplyOptions, StashFlags, StatusOptions,
+    build::CheckoutBuilder, string_array::StringArray, BranchType, DiffFindOptions, DiffOptions,
+    ErrorClass, ErrorCode, StashApplyOptions, StashFlags, StatusOptions,
 };
 
 use crate::git::signer::{ssh::SshSigner, Signer};
@@ -38,6 +38,27 @@ pub enum StashError {
     Git(#[from] git2::Error),
     #[error("config error: {0}")]
     Config(#[from] super::config::Error),
+}
+
+pub struct Remotes<'a> {
+    i: usize,
+    repo: &'a Repo,
+    names: StringArray,
+}
+
+impl<'a> Iterator for Remotes<'a> {
+    type Item = Result<Remote<'a>, git2::Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.i < self.names.len() {
+            let name = self.names.get(self.i).unwrap();
+            self.i += 1;
+
+            Some(self.repo.find_remote(name))
+        } else {
+            None
+        }
+    }
 }
 
 pub struct DiffOpts {
@@ -154,6 +175,17 @@ impl Repo {
             .repo
             .branches(Some(BranchType::Local))?
             .map(|result| result.map(|(branch, _)| branch.into())))
+    }
+
+    pub fn remotes(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<Remote<'_>, git2::Error>> + '_, git2::Error> {
+        let names = self.repo.remotes()?;
+        Ok(Remotes {
+            i: 0,
+            repo: self,
+            names,
+        })
     }
 
     pub fn create_branch(

@@ -2,7 +2,7 @@ use std::{
     borrow::Cow,
     env,
     error::Error,
-    str::FromStr,
+    str::{FromStr, Utf8Error},
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -221,6 +221,14 @@ impl<'a> From<git2::Remote<'a>> for Remote<'a> {
 }
 
 impl<'a> Remote<'a> {
+    pub fn name(&self) -> Result<Option<&str>, Utf8Error> {
+        self.0.name_bytes().map(std::str::from_utf8).transpose()
+    }
+
+    pub fn url(&self) -> Result<&str, Utf8Error> {
+        std::str::from_utf8(self.0.url_bytes())
+    }
+
     pub fn default_branch(&self) -> Result<String, Box<dyn Error>> {
         Ok(String::from_utf8(self.0.default_branch()?.to_vec())?)
     }

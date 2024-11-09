@@ -6,6 +6,7 @@ use git2::ErrorCode;
 
 use crate::{
     git::{Branch, Config, RemoteOpts, Repo},
+    term::render,
     utils,
 };
 
@@ -64,8 +65,8 @@ pub fn run(repo: Repo, _opts: Opts) -> Result<(), Box<dyn Error>> {
 
     println!(
         "Pushing to: {} / {}",
-        format!("⬡ {remote_name}").cyan(),
-        format!(" {branch_name}").purple(),
+        render::remote(remote_name),
+        render::branch(&branch_name),
     );
 
     let reply = remote.push(RemoteOpts::default(), head.name()?)?;

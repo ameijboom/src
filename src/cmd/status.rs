@@ -3,7 +3,10 @@ use std::error::Error;
 use colored::Colorize;
 use git2::{ErrorCode, RepositoryState};
 
-use crate::git::{Change, EntryStatus, Repo};
+use crate::{
+    git::{Change, EntryStatus, Repo},
+    term::render,
+};
 
 fn show_branch(repo: &Repo) -> Result<(), Box<dyn Error>> {
     let indicators = remote_state_indicators(repo)
@@ -13,17 +16,7 @@ fn show_branch(repo: &Repo) -> Result<(), Box<dyn Error>> {
         .unwrap_or_default();
 
     match repo.head() {
-        Ok(head) => {
-            let name = if head.is_branch() || head.is_tag() {
-                head.shorthand()?.to_string()
-            } else {
-                head.target()
-                    .map(|oid| oid.to_string())
-                    .unwrap_or_else(|| "<unknown>".to_string())
-            };
-
-            println!("On {}{indicators}", format!(" {name}").purple());
-        }
+        Ok(head) => println!("On {}{indicators}", render::reference(&head)?),
         Err(e) if e.code() == ErrorCode::UnbornBranch => {
             println!("On {}{indicators}", "[no branch]".yellow());
         }

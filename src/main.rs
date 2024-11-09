@@ -8,7 +8,7 @@ use git2::{Repository, RepositoryOpenFlags};
 
 mod cmd;
 mod git;
-mod select;
+mod term;
 mod utils;
 
 #[derive(Parser)]

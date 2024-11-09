@@ -9,7 +9,7 @@ use pager::Pager;
 
 use crate::{
     git::{Commit, Repo},
-    utils,
+    term::render,
 };
 
 #[derive(Parser)]
@@ -35,6 +35,9 @@ pub enum Cmd {
         #[clap(help = "Target branch or tag")]
         target: Option<String>,
     },
+
+    #[clap(about = "List remotes")]
+    Remote,
 }
 
 macro_rules! check_writeln {
@@ -45,6 +48,23 @@ macro_rules! check_writeln {
             Err(e) => Err(e),
         }
     };
+}
+
+fn list_remotes(repo: &mut Repo, stdout: &mut io::Stdout) -> Result<(), Box<dyn Error>> {
+    for remote in repo.remotes()? {
+        let remote = remote?;
+        check_writeln!(
+            stdout,
+            "{}\t{}",
+            remote
+                .name()?
+                .map(|name| render::remote(name).to_string())
+                .unwrap_or_else(|| "<none>".to_string()),
+            remote.url()?
+        )?;
+    }
+
+    Ok(())
 }
 
 fn list_commits<'a>(
@@ -67,7 +87,7 @@ fn list_commits<'a>(
             check_writeln!(
                 stdout,
                 "{signed}{} {}",
-                utils::short_hash(commit.id()).yellow(),
+                render::commit(commit.id()),
                 message.split('\n').next().unwrap_or_default()
             )?;
         } else {
@@ -89,6 +109,7 @@ fn _run(mut repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
 
     match opts.cmd {
         Some(cmd) => match cmd {
+            Cmd::Remote => list_remotes(&mut repo, &mut stdout),
             Cmd::Stash => {
                 let stashes = repo.stashes()?;
                 list_commits(stashes, opts.short, &mut stdout)
@@ -110,8 +131,12 @@ fn _run(mut repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     }
 }
 
+fn is_pager_disabled(opts: &Opts) -> bool {
+    matches!(opts.cmd, Some(Cmd::Remote))
+}
+
 pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
-    if opts.no_pager {
+    if opts.no_pager || is_pager_disabled(&opts) {
         _run(repo, opts)
     } else {
         colored::control::set_override(true);

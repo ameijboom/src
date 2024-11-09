@@ -3,7 +3,7 @@ use std::{error::Error, path::Path};
 use clap::{Parser, ValueHint};
 use colored::Colorize;
 
-use crate::{git::Repo, select};
+use crate::{git::Repo, term::select};
 
 #[derive(Parser)]
 #[clap(about = "Add file contents to the index")]
