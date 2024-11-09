@@ -308,8 +308,4 @@ impl Repo {
     pub fn state(&self) -> git2::RepositoryState {
         self.repo.state()
     }
-
-    pub fn into_inner(self) -> git2::Repository {
-        self.repo
-    }
 }

@@ -1,6 +1,10 @@
-use std::str::Utf8Error;
+use std::{
+    fmt::{self, Display},
+    str::Utf8Error,
+};
 
 use chrono::{DateTime, Local};
+use colored::{Color, Colorize};
 use git2::Signature;
 
 #[derive(Debug, thiserror::Error)]
@@ -9,6 +13,31 @@ pub enum Error {
     Git(#[from] git2::Error),
     #[error("invalid name: {0}")]
     Utf8(#[from] Utf8Error),
+}
+
+pub struct Headers<T: Display> {
+    color: Option<Color>,
+    pub date: T,
+    pub author: T,
+}
+
+impl<T: Display> Headers<T> {
+    pub fn with_color(mut self, color: Color) -> Self {
+        self.color = Some(color);
+        self
+    }
+}
+
+impl<T: Display> Display for Headers<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.color {
+            Some(color) => {
+                write!(f, "{}", format!("Date: {}\n", self.date).color(color))?;
+                write!(f, "{}", format!("Author: {}", self.author).color(color))
+            }
+            None => write!(f, "Date: {}\nAuthor: {}", self.date, self.author),
+        }
+    }
 }
 
 pub struct Tree<'a>(pub git2::Tree<'a>);
@@ -74,8 +103,27 @@ impl<'a> Commit<'a> {
         super::parse_local_time(self.0.time())
     }
 
+    pub fn headers_formatted(&self) -> Headers<String> {
+        Headers {
+            color: None,
+            date: self.time().format("%Y-%m-%d %H:%M").to_string(),
+            author: self.author().to_string(),
+        }
+    }
+
     pub fn message(&self) -> Result<&str, Utf8Error> {
         std::str::from_utf8(self.0.message_bytes())
+    }
+
+    pub fn message_formatted(&self) -> String {
+        self.message()
+            .map(|msg| {
+                msg.lines()
+                    .map(|l| format!("  {}", l))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            })
+            .unwrap_or_default()
     }
 
     pub fn parent(&self) -> Result<Option<Commit<'a>>, git2::Error> {

@@ -4,7 +4,7 @@ use std::{
 };
 
 use clap::Parser;
-use colored::Colorize;
+use colored::{Color, Colorize};
 use pager::Pager;
 
 use crate::{
@@ -68,19 +68,10 @@ fn list_commits<'a>(
             check_writeln!(stdout, "{signed}{}", commit.id().to_string().yellow())?;
             check_writeln!(
                 stdout,
-                "{}\n{}\n",
-                format!("Date: {}", commit.time().format("%Y-%m-%d %H:%M")).bright_black(),
-                format!("Author: {}", commit.author()).bright_black(),
-            )?;
-            check_writeln!(
-                stdout,
                 "{}\n",
-                message
-                    .lines()
-                    .map(|l| format!("  {l}"))
-                    .collect::<Vec<_>>()
-                    .join("\n"),
+                commit.headers_formatted().with_color(Color::BrightBlack)
             )?;
+            check_writeln!(stdout, "{}\n", commit.message_formatted())?;
         }
     }
 
