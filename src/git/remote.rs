@@ -122,10 +122,17 @@ fn parse_sideband_progress(re: &Regex, line: &[u8]) -> Option<(String, usize, us
     None
 }
 
+pub struct Update {
+    pub src: Oid,
+    pub dst: Oid,
+    pub refname: String,
+}
+
 pub struct RemoteOpts {
     stdout: Vec<u8>,
     bar: ProgressBar,
     compare: Option<Oid>,
+    updates: Vec<Update>,
 }
 
 impl Default for RemoteOpts {
@@ -138,6 +145,7 @@ impl Default for RemoteOpts {
             stdout: vec![],
             bar,
             compare: None,
+            updates: vec![],
         }
     }
 }
@@ -217,6 +225,16 @@ impl RemoteOpts {
             Ok(())
         });
 
+        callbacks.update_tips(|name, src, dst| {
+            self.updates.push(Update {
+                src,
+                dst,
+                refname: name.to_string(),
+            });
+
+            true
+        });
+
         callbacks
     }
 
@@ -225,12 +243,14 @@ impl RemoteOpts {
 
         Reply {
             stdout: self.stdout,
+            updates: self.updates,
         }
     }
 }
 
 pub struct Reply {
     pub stdout: Vec<u8>,
+    pub updates: Vec<Update>,
 }
 
 pub struct Remote<'a>(pub git2::Remote<'a>);
@@ -259,7 +279,7 @@ impl<'a> Remote<'a> {
 
         self.0.fetch(
             &[refspec],
-            Some(FetchOptions::new().remote_callbacks(callbacks)),
+            Some(FetchOptions::new().remote_callbacks(callbacks).depth(0)),
             None,
         )?;
 
