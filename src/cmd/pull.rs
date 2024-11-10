@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, fmt::Display};
 
 use clap::Parser;
 use colored::Colorize;
@@ -7,7 +7,6 @@ use git2::Delta;
 use crate::{
     git::{DiffOpts, RemoteOpts, Repo, Tree},
     term::render,
-    utils,
 };
 
 #[derive(Parser, Default)]
@@ -15,6 +14,19 @@ use crate::{
 pub struct Opts {
     #[clap(short, long, help = "Show detailed output")]
     details: bool,
+}
+
+pub fn shorten(s: impl Display, len: usize) -> String {
+    let s = s.to_string();
+
+    if s.len() <= len {
+        return s;
+    }
+
+    format!(
+        "{}...",
+        s.to_string().chars().take(len - 3).collect::<String>()
+    )
 }
 
 pub fn show_changes(repo: &Repo, tree: &Tree<'_>, detailed: bool) -> Result<(), git2::Error> {
@@ -60,7 +72,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
 
     let branch = repo.find_branch(&branch_name)?;
     let upstream = branch.upstream()?;
-    let remote = utils::parse_remote(upstream.name()?)?;
+    let remote = upstream.remote_name()?;
 
     let mut remote = repo.find_remote(remote)?;
     remote.fetch(RemoteOpts::default(), &branch_name)?;
@@ -88,7 +100,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         "Updated {} to {}: {}",
         render::branch(&branch_name),
         render::commit(oid),
-        utils::shorten(repo.find_commit(oid)?.message()?, 50),
+        shorten(repo.find_commit(oid)?.message()?, 50),
     );
 
     Ok(show_changes(&repo, &old_tree, opts.details)?)

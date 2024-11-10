@@ -11,6 +11,8 @@ pub enum Error {
     Git(#[from] git2::Error),
     #[error("invalid name: {0}")]
     Utf8(#[from] Utf8Error),
+    #[error("missing remote")]
+    MissingRemote,
 }
 
 pub struct Tree<'a>(pub git2::Tree<'a>);
@@ -40,6 +42,21 @@ impl<'a> From<git2::Branch<'a>> for Branch<'a> {
 impl<'a> Branch<'a> {
     pub fn name(&self) -> Result<&str, Error> {
         Ok(std::str::from_utf8(self.0.name_bytes()?)?)
+    }
+
+    pub fn remote_name(&self) -> Result<&str, Error> {
+        let name = self.name()?;
+
+        if name.starts_with("refs/") {
+            return name
+                .strip_prefix("refs/remotes/")
+                .and_then(|n| n.split('/').next())
+                .ok_or(Error::MissingRemote);
+        }
+
+        name.split_once('/')
+            .map(|(name, _)| name)
+            .ok_or(Error::MissingRemote)
     }
 
     pub fn upstream(&self) -> Result<Branch<'a>, git2::Error> {
@@ -116,10 +133,6 @@ impl<'a> Commit<'a> {
             .header_field_bytes("gpgsig")
             .map(|sig| !sig.is_empty())
             .unwrap_or(false)
-    }
-
-    pub fn find_tree(&self) -> Result<Tree<'a>, git2::Error> {
-        self.0.tree().map(Into::into)
     }
 }
 

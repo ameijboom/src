@@ -9,7 +9,6 @@ use git2::{Repository, RepositoryOpenFlags};
 mod cmd;
 mod git;
 mod term;
-mod utils;
 
 #[derive(Parser)]
 struct Opts {

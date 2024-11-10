@@ -7,15 +7,12 @@ use git2::ErrorCode;
 use crate::{
     git::{Branch, Config, RemoteOpts, Repo},
     term::render,
-    utils,
 };
 
 #[derive(Debug, thiserror::Error)]
 pub enum PushError {
     #[error("missing target")]
     MissingTarget,
-    #[error("failed to parse remote in upstream")]
-    ParseRemote(#[from] utils::ParseRemoteError),
 }
 
 #[derive(Parser)]
@@ -60,7 +57,7 @@ pub fn run(repo: Repo, _opts: Opts) -> Result<(), Box<dyn Error>> {
         Err(e) => return Err(e.into()),
     };
 
-    let remote_name = utils::parse_remote(upstream.name()?)?;
+    let remote_name = upstream.remote_name()?;
     let mut remote = repo.find_remote(remote_name)?;
 
     println!(
