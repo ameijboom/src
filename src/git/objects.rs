@@ -1,11 +1,9 @@
-use std::{
-    fmt::{self, Display},
-    str::Utf8Error,
-};
+use std::str::Utf8Error;
 
 use chrono::{DateTime, Local};
-use colored::{Color, Colorize};
 use git2::Signature;
+
+use crate::term::fmt::FmtString;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -13,31 +11,6 @@ pub enum Error {
     Git(#[from] git2::Error),
     #[error("invalid name: {0}")]
     Utf8(#[from] Utf8Error),
-}
-
-pub struct Headers<T: Display> {
-    color: Option<Color>,
-    pub date: T,
-    pub author: T,
-}
-
-impl<T: Display> Headers<T> {
-    pub fn with_color(mut self, color: Color) -> Self {
-        self.color = Some(color);
-        self
-    }
-}
-
-impl<T: Display> Display for Headers<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.color {
-            Some(color) => {
-                write!(f, "{}", format!("Date: {}\n", self.date).color(color))?;
-                write!(f, "{}", format!("Author: {}", self.author).color(color))
-            }
-            None => write!(f, "Date: {}\nAuthor: {}", self.date, self.author),
-        }
-    }
 }
 
 pub struct Tree<'a>(pub git2::Tree<'a>);
@@ -107,12 +80,12 @@ impl<'a> Commit<'a> {
         super::parse_local_time(self.0.time())
     }
 
-    pub fn headers_formatted(&self) -> Headers<String> {
-        Headers {
-            color: None,
-            date: self.time().format("%Y-%m-%d %H:%M").to_string(),
-            author: self.author().to_string(),
-        }
+    pub fn headers_formatted(&self) -> FmtString {
+        FmtString::new(format!(
+            "Date: {}\nAuthor: {}",
+            self.time().format("%Y-%m-%d %H:%M"),
+            self.author()
+        ))
     }
 
     pub fn message(&self) -> Result<&str, Utf8Error> {
@@ -143,6 +116,10 @@ impl<'a> Commit<'a> {
             .header_field_bytes("gpgsig")
             .map(|sig| !sig.is_empty())
             .unwrap_or(false)
+    }
+
+    pub fn find_tree(&self) -> Result<Tree<'a>, git2::Error> {
+        self.0.tree().map(Into::into)
     }
 }
 

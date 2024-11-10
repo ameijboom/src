@@ -51,9 +51,9 @@ impl Cmd {
     }
 }
 
-struct Wrap<T: Write>(T);
+struct WrapFmt<T: Write>(T);
 
-impl<T: Write> fmt::Write for Wrap<T> {
+impl<T: Write> fmt::Write for WrapFmt<T> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.0.write_all(s.as_bytes()).map_err(|_| fmt::Error)
     }
@@ -140,7 +140,7 @@ fn render(mut repo: Repo, stdout: impl fmt::Write, opts: Opts) -> Result<(), Box
 
 pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     if opts.no_pager {
-        render(repo, Wrap(io::stdout()), opts)
+        render(repo, WrapFmt(io::stdout()), opts)
     } else {
         colored::control::set_override(true);
 

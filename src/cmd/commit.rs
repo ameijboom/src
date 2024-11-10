@@ -57,7 +57,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     repo.head()?
         .set_target(oid, &format!("commit: {}", opts.message))?;
 
-    let diff = repo.diff(&old_tree, DiffOpts::default())?;
+    let diff = repo.diff(DiffOpts::default().with_all(&old_tree))?;
     let stats = diff.stats()?;
     let mut indicators = vec![];
 

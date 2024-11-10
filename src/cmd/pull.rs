@@ -18,7 +18,7 @@ pub struct Opts {
 }
 
 pub fn show_changes(repo: &Repo, tree: &Tree<'_>, detailed: bool) -> Result<(), git2::Error> {
-    let diff = repo.diff(tree, DiffOpts::default())?;
+    let diff = repo.diff(DiffOpts::default().with_all(tree))?;
     let stats = diff.stats()?;
     let mut indicators = vec![];
 

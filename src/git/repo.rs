@@ -61,12 +61,18 @@ impl<'a> Iterator for Remotes<'a> {
     }
 }
 
-pub struct DiffOpts {
-    staged: bool,
+enum DiffType<'a> {
+    All(&'a Tree<'a>),
+    Staged(&'a Tree<'a>),
+    Unstaged,
+}
+
+pub struct DiffOpts<'a> {
+    ty: DiffType<'a>,
     diff_opts: DiffOptions,
 }
 
-impl Default for DiffOpts {
+impl<'a> Default for DiffOpts<'a> {
     fn default() -> Self {
         let mut opts = DiffOptions::new();
         opts.force_text(true)
@@ -78,15 +84,20 @@ impl Default for DiffOpts {
             .show_untracked_content(true);
 
         Self {
-            staged: false,
+            ty: DiffType::Unstaged,
             diff_opts: opts,
         }
     }
 }
 
-impl DiffOpts {
-    pub fn with_staged(mut self, staged: bool) -> Self {
-        self.staged = staged;
+impl<'a> DiffOpts<'a> {
+    pub fn with_all(mut self, tree: &'a Tree<'a>) -> Self {
+        self.ty = DiffType::All(tree);
+        self
+    }
+
+    pub fn with_staged(mut self, tree: &'a Tree<'a>) -> Self {
+        self.ty = DiffType::Staged(tree);
         self
     }
 
@@ -284,13 +295,18 @@ impl Repo {
         }
     }
 
-    pub fn diff(&self, tree: &Tree<'_>, mut opts: DiffOpts) -> Result<git2::Diff, git2::Error> {
-        let mut diff = if opts.staged {
-            self.repo
-                .diff_tree_to_index(Some(&tree.0), None, Some(&mut opts.diff_opts))?
-        } else {
-            self.repo
-                .diff_tree_to_workdir_with_index(Some(&tree.0), Some(&mut opts.diff_opts))?
+    pub fn diff(&self, mut opts: DiffOpts) -> Result<git2::Diff, git2::Error> {
+        let mut diff = match opts.ty {
+            DiffType::All(tree) => self
+                .repo
+                .diff_tree_to_workdir_with_index(Some(&tree.0), Some(&mut opts.diff_opts))?,
+            DiffType::Staged(tree) => {
+                self.repo
+                    .diff_tree_to_index(Some(&tree.0), None, Some(&mut opts.diff_opts))?
+            }
+            DiffType::Unstaged => self
+                .repo
+                .diff_index_to_workdir(None, Some(&mut opts.diff_opts))?,
         };
 
         let mut find_opts = DiffFindOptions::new();
