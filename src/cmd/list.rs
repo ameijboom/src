@@ -39,6 +39,9 @@ pub enum Cmd {
 
     #[clap(about = "List remotes")]
     Remote,
+
+    #[clap(about = "List branches")]
+    Branch,
 }
 
 impl Cmd {
@@ -47,6 +50,7 @@ impl Cmd {
             Cmd::Stash => "stash",
             Cmd::Commit { .. } => "commit",
             Cmd::Remote => "remote",
+            Cmd::Branch => "branch",
         }
     }
 }
@@ -113,28 +117,31 @@ fn list_commits<'a>(
     Ok(())
 }
 
+fn list_branches(repo: Repo, mut stdout: impl fmt::Write) -> Result<(), Box<dyn Error>> {
+    for branch in repo.branches()? {
+        let branch = branch?;
+        writeln!(stdout, "{}", render::branch(branch.name()?))?;
+    }
+
+    Ok(())
+}
+
 fn render(mut repo: Repo, stdout: impl fmt::Write, opts: Opts) -> Result<(), Box<dyn Error>> {
     match opts.cmd {
         Some(cmd) => match cmd {
+            Cmd::Branch => list_branches(repo, stdout),
             Cmd::Remote => list_remotes(&mut repo, stdout),
-            Cmd::Stash => {
-                let stashes = repo.stashes()?;
-                list_commits(stashes, opts.short, stdout)
-            }
+            Cmd::Stash => list_commits(repo.stashes()?, opts.short, stdout),
             Cmd::Commit { target } => {
                 let target = match target {
                     Some(target) => repo.find_branch(&target).map(|b| b.into_ref()),
                     None => repo.head(),
                 }?;
-                let commits = repo.commits(&target)?;
 
-                list_commits(commits, opts.short, stdout)
+                list_commits(repo.commits(&target)?, opts.short, stdout)
             }
         },
-        None => {
-            let commits = repo.commits(&repo.head()?)?;
-            list_commits(commits, opts.short, stdout)
-        }
+        None => list_commits(repo.commits(&repo.head()?)?, opts.short, stdout),
     }
 }
 
