@@ -17,7 +17,10 @@ pub enum PushError {
 
 #[derive(Parser)]
 #[clap(about = "Update remote refs along with associated objects")]
-pub struct Opts {}
+pub struct Opts {
+    #[clap(short, long, help = "Force push")]
+    force: bool,
+}
 
 fn set_tracking_branch(
     repo: &Repo,
@@ -35,20 +38,17 @@ fn set_tracking_branch(
     Ok(())
 }
 
-pub fn run(repo: Repo, _opts: Opts) -> Result<(), Box<dyn Error>> {
+pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let head = repo.head()?;
-    let head_name = head.shorthand()?;
-    let mut branch = repo.find_branch(head_name)?;
-    let branch_name = branch.name()?.to_string();
-
+    let refname = head.name()?.to_string();
+    let mut branch = head.into_branch()?;
     let upstream = match branch.upstream() {
         Ok(upstream) => upstream,
         Err(e) if e.code() == ErrorCode::NotFound => {
             let config = Config::open_default()?;
 
             if !config.push.auto_setup_remote {
-                println!("{}", "No remote branch found".red());
-                return Ok(());
+                return Err("No remote branch found".into());
             }
 
             set_tracking_branch(&repo, "origin", &mut branch)?;
@@ -63,10 +63,17 @@ pub fn run(repo: Repo, _opts: Opts) -> Result<(), Box<dyn Error>> {
     println!(
         "Pushing to: {} / {}",
         render::remote(remote_name),
-        render::branch(&branch_name),
+        render::branch(branch.name()?),
     );
 
-    let reply = remote.push(RemoteOpts::default(), head.name()?)?;
+    let reply = remote.push(
+        RemoteOpts::default(),
+        &if opts.force {
+            format!("+{refname}")
+        } else {
+            refname
+        },
+    )?;
 
     println!("✓ done");
 

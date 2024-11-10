@@ -78,14 +78,14 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     remote.fetch(RemoteOpts::default(), &branch_name)?;
 
     let Some(oid) = branch.upstream()?.target() else {
-        return Err("invalid oid for upstream".into());
+        return Err("invalid upstream reference".into());
     };
 
     let commit = repo.find_annotated_commit(oid)?;
     let (analysis, _) = repo.merge_analysis(&commit)?;
 
     if analysis.is_up_to_date() {
-        println!("Already up to date");
+        println!("✓ up to date");
         return Ok(());
     } else if !analysis.is_fast_forward() {
         return Err("unsupported operation (no fast-forward)".into());

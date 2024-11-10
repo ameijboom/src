@@ -1,12 +1,13 @@
 use std::error::Error;
 
 use clap::Parser;
-use inquire::{
-    ui::{Color, RenderConfig},
-    Confirm,
-};
+use inquire::ui::{Color, RenderConfig};
 
-use crate::{cmd::add::add_callback, git::Repo, term::render};
+use crate::{
+    cmd::add::add_callback,
+    git::Repo,
+    term::{self, render},
+};
 
 #[derive(Parser)]
 #[clap(about = "Amend recorded changes to the repository")]
@@ -47,11 +48,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         let mut config = RenderConfig::default_colored();
         config.prompt.fg = Some(Color::LightCyan);
 
-        if !Confirm::new("Amend this commit?")
-            .with_default(false)
-            .with_render_config(config)
-            .prompt()?
-        {
+        if !term::confirm("Amend this commit?")? {
             return Ok(());
         }
     }

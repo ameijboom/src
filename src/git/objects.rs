@@ -167,6 +167,10 @@ impl<'a> Ref<'a> {
         self.0.peel_to_tree().map(Into::into)
     }
 
+    pub fn into_branch(self) -> Result<Branch<'a>, git2::Error> {
+        Ok(git2::Branch::wrap(self.0).into())
+    }
+
     pub fn target(&self) -> Option<git2::Oid> {
         self.0.target()
     }
