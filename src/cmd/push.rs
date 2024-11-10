@@ -57,6 +57,10 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         Err(e) => return Err(e.into()),
     };
 
+    let Some(target) = branch.upstream()?.target() else {
+        return Err(PushError::MissingTarget.into());
+    };
+
     let remote_name = upstream.remote_name()?;
     let mut remote = repo.find_remote(remote_name)?;
 
@@ -67,7 +71,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     );
 
     let reply = remote.push(
-        RemoteOpts::default(),
+        RemoteOpts::default().with_compare(target),
         &if opts.force {
             format!("+{refname}")
         } else {

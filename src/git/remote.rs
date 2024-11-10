@@ -10,7 +10,7 @@ use std::{
     time::Duration,
 };
 
-use git2::{Cred, Direction, FetchOptions, PushOptions, RemoteCallbacks};
+use git2::{Cred, Direction, FetchOptions, Oid, PushOptions, RemoteCallbacks};
 use http::Uri;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
@@ -125,6 +125,7 @@ fn parse_sideband_progress(re: &Regex, line: &[u8]) -> Option<(String, usize, us
 pub struct RemoteOpts {
     stdout: Vec<u8>,
     bar: ProgressBar,
+    compare: Option<Oid>,
 }
 
 impl Default for RemoteOpts {
@@ -136,11 +137,17 @@ impl Default for RemoteOpts {
         Self {
             stdout: vec![],
             bar,
+            compare: None,
         }
     }
 }
 
 impl RemoteOpts {
+    pub fn with_compare(mut self, compare: Oid) -> Self {
+        self.compare = Some(compare);
+        self
+    }
+
     pub fn callbacks(&mut self) -> RemoteCallbacks<'_> {
         let stdout = &mut self.stdout;
         let mut callbacks = RemoteCallbacks::new();
@@ -194,6 +201,20 @@ impl RemoteOpts {
             state.push.current.store(current, Ordering::Relaxed);
             state.push.total.store(total, Ordering::Relaxed);
             state.update("Pushing");
+        });
+
+        callbacks.push_negotiation(|updates| {
+            if let Some(oid) = self.compare {
+                if !updates.iter().any(|upd| upd.src() == oid) {
+                    return Err(git2::Error::new(
+                        git2::ErrorCode::User,
+                        git2::ErrorClass::None,
+                        "update rejected (outdated)",
+                    ));
+                }
+            }
+
+            Ok(())
         });
 
         callbacks
