@@ -1,11 +1,12 @@
 use std::{
     error::Error,
-    io::{self, ErrorKind, Write},
+    fmt,
+    io::{self, Write},
 };
 
 use clap::Parser;
 use colored::{Color, Colorize};
-use pager::Pager;
+use minus::Pager;
 
 use crate::{
     git::{Commit, Repo},
@@ -40,20 +41,28 @@ pub enum Cmd {
     Remote,
 }
 
-macro_rules! check_writeln {
-    ($dst:expr, $($arg:tt)*) => {
-        match std::writeln!($dst, $($arg)*) {
-            Ok(_) => Ok(()),
-            Err(e) if e.kind() == ErrorKind::BrokenPipe => Ok(()),
-            Err(e) => Err(e),
+impl Cmd {
+    pub fn name(&self) -> &str {
+        match self {
+            Cmd::Stash => "stash",
+            Cmd::Commit { .. } => "commit",
+            Cmd::Remote => "remote",
         }
-    };
+    }
 }
 
-fn list_remotes(repo: &mut Repo, stdout: &mut io::Stdout) -> Result<(), Box<dyn Error>> {
+struct Wrap<T: Write>(T);
+
+impl<T: Write> fmt::Write for Wrap<T> {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.0.write_all(s.as_bytes()).map_err(|_| fmt::Error)
+    }
+}
+
+fn list_remotes(repo: &mut Repo, mut stdout: impl fmt::Write) -> Result<(), Box<dyn Error>> {
     for remote in repo.remotes()? {
         let remote = remote?;
-        check_writeln!(
+        writeln!(
             stdout,
             "{}\t{}",
             remote
@@ -70,7 +79,7 @@ fn list_remotes(repo: &mut Repo, stdout: &mut io::Stdout) -> Result<(), Box<dyn 
 fn list_commits<'a>(
     walk: impl Iterator<Item = Result<Commit<'a>, git2::Error>>,
     short: bool,
-    mut stdout: impl Write,
+    mut stdout: impl fmt::Write,
 ) -> Result<(), Box<dyn Error>> {
     for commit in walk {
         let commit = commit?;
@@ -84,35 +93,33 @@ fn list_commits<'a>(
         let message = commit.message().unwrap_or_default().trim();
 
         if short {
-            check_writeln!(
+            writeln!(
                 stdout,
                 "{signed}{} {}",
                 render::commit(commit.id()),
                 message.split('\n').next().unwrap_or_default()
             )?;
         } else {
-            check_writeln!(stdout, "{signed}{}", commit.id().to_string().yellow())?;
-            check_writeln!(
+            writeln!(stdout, "{signed}{}", commit.id().to_string().yellow())?;
+            writeln!(
                 stdout,
                 "{}\n",
                 commit.headers_formatted().with_color(Color::BrightBlack)
             )?;
-            check_writeln!(stdout, "{}\n", commit.message_formatted())?;
+            writeln!(stdout, "{}\n", commit.message_formatted())?;
         }
     }
 
     Ok(())
 }
 
-fn _run(mut repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
-    let mut stdout = io::stdout();
-
+fn render(mut repo: Repo, stdout: impl fmt::Write, opts: Opts) -> Result<(), Box<dyn Error>> {
     match opts.cmd {
         Some(cmd) => match cmd {
-            Cmd::Remote => list_remotes(&mut repo, &mut stdout),
+            Cmd::Remote => list_remotes(&mut repo, stdout),
             Cmd::Stash => {
                 let stashes = repo.stashes()?;
-                list_commits(stashes, opts.short, &mut stdout)
+                list_commits(stashes, opts.short, stdout)
             }
             Cmd::Commit { target } => {
                 let target = match target {
@@ -121,26 +128,29 @@ fn _run(mut repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
                 }?;
                 let commits = repo.commits(&target)?;
 
-                list_commits(commits, opts.short, &mut stdout)
+                list_commits(commits, opts.short, stdout)
             }
         },
         None => {
             let commits = repo.commits(&repo.head()?)?;
-            list_commits(commits, opts.short, &mut stdout)
+            list_commits(commits, opts.short, stdout)
         }
     }
 }
 
-fn is_pager_disabled(opts: &Opts) -> bool {
-    matches!(opts.cmd, Some(Cmd::Remote))
-}
-
 pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
-    if opts.no_pager || is_pager_disabled(&opts) {
-        _run(repo, opts)
+    if opts.no_pager {
+        render(repo, Wrap(io::stdout()), opts)
     } else {
         colored::control::set_override(true);
-        Pager::with_default_pager("less -R").setup();
-        _run(repo, opts)
+
+        let cmd = opts.cmd.as_ref().map(Cmd::name).unwrap_or("commit");
+        let mut pager = Pager::new();
+        pager.set_prompt(format!("list {cmd}s, q to quit"))?;
+
+        render(repo, &mut pager, opts)?;
+        minus::page_all(pager)?;
+
+        Ok(())
     }
 }
