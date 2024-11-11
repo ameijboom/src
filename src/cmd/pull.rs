@@ -86,7 +86,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         render::commit(oid),
         "(".bright_black(),
         change_indicators(&repo, &old_tree, opts.details)
-            .map(|i| format!("{}", i.join(" ")))
+            .map(|i| i.join(" "))
             .unwrap_or("<no changes>".to_string()),
         ")".bright_black(),
     );

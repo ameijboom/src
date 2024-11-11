@@ -152,6 +152,12 @@ impl Repo {
         self.repo.find_reference(name).map(Into::into)
     }
 
+    pub fn find_ref_by_shortname(&self, shortname: &str) -> Result<Ref<'_>, git2::Error> {
+        self.repo
+            .resolve_reference_from_short_name(shortname)
+            .map(Into::into)
+    }
+
     pub fn find_branch(&self, name: &str) -> Result<Branch<'_>, git2::Error> {
         self.repo
             .find_branch(name, BranchType::Local)

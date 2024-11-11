@@ -11,7 +11,7 @@ use minus::Pager;
 use which::which;
 
 use crate::{
-    git::{DiffOpts, Repo},
+    git::{DiffOpts, Optional, Repo},
     term::render,
 };
 
@@ -61,10 +61,6 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let tree = head.find_tree()?;
     let mut diff_opts = DiffOpts::default();
 
-    if let Some(filter) = opts.filter {
-        diff_opts = diff_opts.with_pathspec(&filter);
-    }
-
     if opts.staged {
         diff_opts = diff_opts.with_staged(&tree);
     }
@@ -73,7 +69,16 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         diff_opts = diff_opts.with_all(&tree);
     }
 
-    let diff = repo.diff(diff_opts)?;
+    let (diff, dst) = if let Some(filter) = opts.filter {
+        if let Some(reference) = repo.find_ref_by_shortname(&filter).optional()? {
+            let tree = reference.find_tree()?;
+            (repo.diff(diff_opts.with_all(&tree))?, Some(reference))
+        } else {
+            (repo.diff(diff_opts.with_pathspec(&filter))?, None)
+        }
+    } else {
+        (repo.diff(diff_opts)?, None)
+    };
 
     if opts.patch {
         print_patch(&diff)?;
@@ -100,10 +105,13 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
                 return Ok(());
             }
 
-            let branch = render::reference(&head)?.into_inner();
+            let summary = match dst {
+                Some(dst) => format!("{}..{}", head.shorthand()?, dst.shorthand()?),
+                None => format!("at {}", render::reference(&head)?.into_inner()),
+            };
             let mut pager = Pager::new();
 
-            pager.set_prompt(format!("diff on {}, q to quit", branch))?;
+            pager.set_prompt(format!("diff {}, q to quit", summary))?;
             pager.write_str(&stdout)?;
 
             minus::page_all(pager)?;

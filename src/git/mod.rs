@@ -23,7 +23,10 @@ impl<T> Optional<T> for Result<T, git2::Error> {
     fn optional(self) -> Result<Option<T>, Error> {
         match self {
             Ok(value) => Ok(Some(value)),
-            Err(e) if e.code() == ErrorCode::NotFound && e.class() == ErrorClass::Config => {
+            Err(e)
+                if e.code() == ErrorCode::NotFound
+                    && matches!(e.class(), ErrorClass::Config | ErrorClass::Reference) =>
+            {
                 Ok(None)
             }
             Err(e) => Err(e),
