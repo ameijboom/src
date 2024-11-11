@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[derive(Parser)]
-#[clap(about = "Checkout a branch")]
+#[clap(about = "Checkout a branch", alias = "use")]
 pub struct Opts {
     #[clap(help = "Branch name")]
     branch: Option<String>,
