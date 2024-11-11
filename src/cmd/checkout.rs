@@ -3,7 +3,7 @@ use std::error::Error;
 use clap::Parser;
 
 use crate::{
-    git::{CheckoutError, Ref, Repo},
+    git::{Branch, CheckoutError, Optional, Ref, RemoteOpts, Repo},
     term::select,
 };
 
@@ -41,6 +41,31 @@ fn branch_names(repo: &Repo) -> Result<Vec<String>, Box<dyn Error>> {
         .collect::<Result<Vec<_>, _>>()?)
 }
 
+fn find_remote_branch<'a>(
+    repo: &'a Repo,
+    branch_name: &str,
+) -> Result<Option<Branch<'a>>, Box<dyn Error>> {
+    for remote in repo.remotes()? {
+        let mut remote = remote?;
+        let Some(name) = remote.name()?.map(ToString::to_string) else {
+            continue;
+        };
+
+        remote.fetch(RemoteOpts::default(), branch_name)?;
+
+        let branch = repo
+            .find_remote_branch(&format!("{}/{branch_name}", name))?
+            .into_ref();
+        let commit = branch.find_commit()?;
+
+        println!("Tracking remote branch");
+
+        return Ok(Some(repo.create_branch(branch_name, &commit)?));
+    }
+
+    Ok(None)
+}
+
 pub fn run(mut repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let branch_name = match opts.branch {
         Some(branch) => branch,
@@ -50,7 +75,16 @@ pub fn run(mut repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         },
     };
 
-    if !try_checkout(&repo, &repo.find_branch(&branch_name)?.into())? {
+    let branch = match repo.find_branch(&branch_name).optional()? {
+        Some(branch) => branch,
+        None => match find_remote_branch(&repo, &branch_name) {
+            Ok(Some(branch)) => branch,
+            Ok(None) => return Err("Branch not found".into()),
+            Err(e) => return Err(e),
+        },
+    };
+
+    if !try_checkout(&repo, &branch.into())? {
         repo.save_stash(&format!("auto stash before checkout to: {branch_name}"))?;
 
         println!("✓ Changes stashed\n");

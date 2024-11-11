@@ -164,6 +164,12 @@ impl Repo {
             .map(Into::into)
     }
 
+    pub fn find_remote_branch(&self, name: &str) -> Result<Branch<'_>, git2::Error> {
+        self.repo
+            .find_branch(name, BranchType::Remote)
+            .map(Into::into)
+    }
+
     pub fn checkout_tree(&self, Tree(tree): &Tree<'_>, force: bool) -> Result<(), git2::Error> {
         let mut cb = CheckoutBuilder::default();
 
