@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::Display};
+use std::error::Error;
 
 use clap::Parser;
 use colored::Colorize;
@@ -16,20 +16,11 @@ pub struct Opts {
     details: bool,
 }
 
-pub fn shorten(s: impl Display, len: usize) -> String {
-    let s = s.to_string();
-
-    if s.len() <= len {
-        return s;
-    }
-
-    format!(
-        "{}...",
-        s.to_string().chars().take(len - 3).collect::<String>()
-    )
-}
-
-pub fn show_changes(repo: &Repo, tree: &Tree<'_>, detailed: bool) -> Result<(), git2::Error> {
+fn change_indicators(
+    repo: &Repo,
+    tree: &Tree<'_>,
+    detailed: bool,
+) -> Result<Vec<String>, git2::Error> {
     let diff = repo.diff(DiffOpts::default().with_all(tree))?;
     let stats = diff.stats()?;
     let mut indicators = vec![];
@@ -56,14 +47,7 @@ pub fn show_changes(repo: &Repo, tree: &Tree<'_>, detailed: bool) -> Result<(), 
         }
     }
 
-    println!(
-        "Changes {}{}{}",
-        "(".bright_black(),
-        indicators.join(" "),
-        ")".bright_black()
-    );
-
-    Ok(())
+    Ok(indicators)
 }
 
 pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
@@ -97,11 +81,25 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     repo.checkout_tree(&target.find_tree()?, true)?;
 
     println!(
-        "Updated {} to {}: {}",
+        "Updated {} to {} {}{}{}",
         render::branch(&branch_name),
         render::commit(oid),
-        shorten(repo.find_commit(oid)?.message()?, 50),
+        "(".bright_black(),
+        change_indicators(&repo, &old_tree, opts.details)
+            .map(|i| format!("{}", i.join(" ")))
+            .unwrap_or("<no changes>".to_string()),
+        ")".bright_black(),
     );
 
-    Ok(show_changes(&repo, &old_tree, opts.details)?)
+    let commit = target.find_commit()?;
+
+    println!(
+        "\n{}\n\n{}",
+        commit
+            .headers_formatted()
+            .with_color(colored::Color::BrightBlack),
+        commit.message_formatted()
+    );
+
+    Ok(())
 }
