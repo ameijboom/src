@@ -73,8 +73,14 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         "Created {} {}{}{}",
         render::commit(oid),
         "(".bright_black(),
-        indicators.join(" "),
-        ")".bright_black()
+        if indicators.is_empty() {
+            None
+        } else {
+            Some(indicators)
+        }
+        .map(|i| i.join(" "))
+        .unwrap_or("<no changes>".to_string()),
+        ")".bright_black(),
     );
 
     Ok(())

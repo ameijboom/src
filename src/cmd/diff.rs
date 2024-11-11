@@ -1,8 +1,9 @@
 use std::{
     error::Error,
     fmt::Write as _,
-    io::{self, Write},
+    io::{BufRead, BufReader, Write},
     process::{Command, Stdio},
+    thread,
 };
 
 use clap::{Parser, ValueHint};
@@ -15,26 +16,23 @@ use crate::{
     term::render,
 };
 
-fn write_diff(diff: &Diff, mut stdout: impl Write) -> Result<(), git2::Error> {
+fn render_diff(diff: &Diff) -> Result<Vec<u8>, git2::Error> {
+    let mut output = vec![];
+
     diff.print(DiffFormat::Patch, |_delta, _hunk, line| {
         let content = std::str::from_utf8(line.content()).unwrap_or_default();
         let _ = match line.origin() {
-            '+' => write!(stdout, "+{content}"),
-            '-' => write!(stdout, "-{content}"),
-            ' ' => write!(stdout, " {content}"),
-            'F' | 'H' => write!(stdout, "{content}"),
-            _ => write!(stdout, "{content}"),
+            '+' => write!(output, "+{content}"),
+            '-' => write!(output, "-{content}"),
+            ' ' => write!(output, " {content}"),
+            'F' | 'H' => write!(output, "{content}"),
+            _ => write!(output, "{content}"),
         };
 
         true
-    })
-}
+    })?;
 
-fn print_patch(diff: &Diff) -> Result<(), git2::Error> {
-    let mut stdout = io::stdout();
-    write_diff(diff, &mut stdout)?;
-
-    Ok(())
+    Ok(output)
 }
 
 #[derive(Parser)]
@@ -81,7 +79,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     };
 
     if opts.patch {
-        print_patch(&diff)?;
+        println!("{}", String::from_utf8(render_diff(&diff)?)?);
         return Ok(());
     }
 
@@ -92,31 +90,47 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
                 .stdout(Stdio::piped())
                 .stderr(Stdio::inherit())
                 .spawn()?;
-            let stdin = child.stdin.as_mut().unwrap();
-
-            write_diff(&diff, &mut *stdin)?;
-            stdin.flush()?;
-
-            let output = child.wait_with_output()?;
-            let stdout = String::from_utf8(output.stdout)?;
 
             if opts.no_pager {
-                println!("{}", stdout);
+                let stdin = child.stdin.as_mut().unwrap();
+                stdin.write_all(&render_diff(&diff)?)?;
+                stdin.flush()?;
+
+                let output = child.wait_with_output()?;
+                println!("{}", String::from_utf8(output.stdout)?);
+
                 return Ok(());
             }
 
+            let pager = Pager::new();
             let summary = match dst {
                 Some(dst) => format!("{}..{}", head.shorthand()?, dst.shorthand()?),
                 None => format!("at {}", render::reference(&head)?.into_inner()),
             };
-            let mut pager = Pager::new();
 
             pager.set_prompt(format!("diff {}, q to quit", summary))?;
-            pager.write_str(&stdout)?;
 
-            minus::page_all(pager)?;
+            let mut stdin = child.stdin.take().unwrap();
+            let diff = render_diff(&diff)?;
+
+            thread::spawn(move || {
+                stdin.write_all(&diff)?;
+                stdin.flush()
+            });
+
+            let mut p = pager.clone();
+            thread::spawn(move || {
+                let stdout = BufReader::new(child.stdout.unwrap());
+                let mut lines = stdout.lines();
+
+                while let Some(Ok(line)) = lines.next() {
+                    let _ = writeln!(p, "{}", line);
+                }
+            });
+
+            minus::dynamic_paging(pager)?;
         }
-        Err(_) => print_patch(&diff)?,
+        Err(_) => println!("{}", String::from_utf8(render_diff(&diff)?)?),
     }
 
     Ok(())
