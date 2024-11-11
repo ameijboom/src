@@ -213,7 +213,9 @@ impl RemoteOpts {
 
         callbacks.push_negotiation(|updates| {
             if let Some(oid) = self.compare {
-                if !updates.iter().any(|upd| upd.src() == oid) {
+                if !updates.iter().any(|upd| upd.src() == oid)
+                    && !updates.iter().all(|upd| upd.src().is_zero())
+                {
                     return Err(git2::Error::new(
                         git2::ErrorCode::User,
                         git2::ErrorClass::None,
