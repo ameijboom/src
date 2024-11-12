@@ -33,35 +33,37 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let oid = index.write_tree()?;
     let mut head = repo.head()?;
     let tree = repo.find_tree(oid)?;
-    let commit = head.find_commit()?;
-    let message = commit.message().unwrap_or_default().to_string();
+    let (oid, message) = {
+        let commit = head.find_commit()?;
 
-    if !opts.yes {
-        println!(
-            "{}\n\n{}\n",
-            commit
-                .headers_formatted()
-                .with_color(colored::Color::BrightBlack),
-            commit.message_formatted()
-        );
+        if !opts.yes {
+            println!(
+                "{}\n\n{}\n",
+                commit
+                    .headers_formatted()
+                    .with_color(colored::Color::BrightBlack),
+                commit.message_formatted()
+            );
 
-        let mut config = RenderConfig::default_colored();
-        config.prompt.fg = Some(Color::LightCyan);
+            let mut config = RenderConfig::default_colored();
+            config.prompt.fg = Some(Color::LightCyan);
 
-        if !term::confirm("Amend this commit?")? {
-            return Ok(());
+            if !term::confirm("Amend this commit?")? {
+                return Ok(());
+            }
         }
-    }
 
-    let parent = commit.parent()?.ok_or("unable to amend empty commit")?;
-    let message = opts.message.as_deref().unwrap_or(&message);
-    let oid = repo.create_commit(&tree, message, Some(&parent))?;
+        let parent = commit.parent()?.ok_or("unable to amend empty commit")?;
+        let message = match opts.message {
+            Some(message) => message,
+            None => commit.message()?.to_string(),
+        };
+        let oid = repo.create_commit(&tree, &message, Some(&parent))?;
 
-    drop(commit);
-    drop(parent);
+        (oid, message)
+    };
 
     head.set_target(oid, &format!("commit amended: {message}"))?;
-
     println!("Created {}", render::commit(oid));
 
     Ok(())
