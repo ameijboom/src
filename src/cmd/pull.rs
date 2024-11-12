@@ -68,10 +68,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut remote = repo.find_remote(remote)?;
     remote.fetch(RemoteOpts::default(), branch_name)?;
 
-    let Some(oid) = branch.upstream()?.target() else {
-        return Err("invalid upstream reference".into());
-    };
-
+    let oid = branch.upstream()?.target()?;
     let old_tree = head.find_tree()?;
     let upstream = repo.find_annotated_commit(oid)?;
     let (analysis, _) = repo.merge_analysis(&upstream)?;

@@ -68,8 +68,14 @@ impl<'a> Branch<'a> {
         self.0.set_upstream(Some(name))
     }
 
-    pub fn target(&self) -> Option<git2::Oid> {
-        self.0.get().target()
+    pub fn target(&self) -> Result<git2::Oid, git2::Error> {
+        self.0.get().target().ok_or_else(|| {
+            git2::Error::new(
+                git2::ErrorCode::NotFastForward,
+                git2::ErrorClass::Reference,
+                "missing target",
+            )
+        })
     }
 
     pub fn into_ref(self) -> Ref<'a> {

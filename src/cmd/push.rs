@@ -9,12 +9,6 @@ use crate::{
     term::render,
 };
 
-#[derive(Debug, thiserror::Error)]
-pub enum PushError {
-    #[error("missing target")]
-    MissingTarget,
-}
-
 #[derive(Parser)]
 #[clap(about = "Update remote refs along with associated objects")]
 pub struct Opts {
@@ -28,10 +22,7 @@ fn set_tracking_branch(
     branch: &mut Branch<'_>,
 ) -> Result<(), Box<dyn Error>> {
     let name = branch.name()?;
-    let reference = repo.create_ref(
-        &format!("refs/remotes/{remote}/{name}"),
-        branch.target().ok_or(PushError::MissingTarget)?,
-    )?;
+    let reference = repo.create_ref(&format!("refs/remotes/{remote}/{name}"), branch.target()?)?;
 
     branch.set_upstream(reference.shorthand()?)?;
 
@@ -57,10 +48,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         Err(e) => return Err(e.into()),
     };
 
-    let Some(target) = branch.upstream()?.target() else {
-        return Err(PushError::MissingTarget.into());
-    };
-
+    let target = branch.upstream()?.target()?;
     let remote_name = upstream.remote_name()?;
     let mut remote = repo.find_remote(remote_name)?;
 
