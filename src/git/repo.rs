@@ -2,7 +2,7 @@ use std::error::Error;
 
 use git2::{
     build::CheckoutBuilder, string_array::StringArray, BranchType, DiffFindOptions, DiffOptions,
-    ErrorClass, ErrorCode, StashApplyOptions, StashFlags, StatusOptions,
+    ErrorClass, ErrorCode, RebaseOptions, StashApplyOptions, StashFlags, StatusOptions,
 };
 
 use crate::git::signer::{ssh::SshSigner, Signer};
@@ -34,6 +34,14 @@ impl From<git2::Error> for CheckoutError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum StashError {
+    #[error("git error: {0}")]
+    Git(#[from] git2::Error),
+    #[error("config error: {0}")]
+    Config(#[from] super::config::Error),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RebaseError {
     #[error("git error: {0}")]
     Git(#[from] git2::Error),
     #[error("config error: {0}")]
@@ -191,6 +199,43 @@ impl Repo {
         Ok(())
     }
 
+    pub fn rebase(
+        &self,
+        branch: &git2::AnnotatedCommit<'_>,
+        upstream: &git2::AnnotatedCommit<'_>,
+    ) -> Result<Option<git2::Oid>, RebaseError> {
+        let mut cb = CheckoutBuilder::default();
+        cb.safe();
+
+        let mut rebase = self.repo.rebase(
+            Some(branch),
+            Some(upstream),
+            None,
+            Some(RebaseOptions::default().checkout_options(cb)),
+        )?;
+
+        let config = Config::open_default()?;
+        let author = config.user.signature()?;
+        let mut oid = None;
+
+        while let Some(op) = rebase.next() {
+            let run = || {
+                let op = op?;
+                rebase.commit(None, &author, None)?;
+                Ok::<_, RebaseError>(op.id())
+            };
+
+            match run() {
+                Ok(new_oid) => oid = Some(new_oid),
+                Err(e) => return Err(e),
+            }
+        }
+
+        rebase.finish(None)?;
+
+        Ok(oid)
+    }
+
     pub fn branches(
         &self,
     ) -> Result<impl Iterator<Item = Result<Branch<'_>, git2::Error>> + '_, git2::Error> {
@@ -266,7 +311,7 @@ impl Repo {
     }
 
     pub fn create_ref(&self, name: &str, target: git2::Oid) -> Result<Ref<'_>, git2::Error> {
-        self.repo.reference(name, target, false, "").map(Into::into)
+        self.repo.reference(name, target, true, "").map(Into::into)
     }
 
     pub fn create_commit(
@@ -325,10 +370,6 @@ impl Repo {
         diff.find_similar(Some(find_opts.renames(true).copies(true)))?;
 
         Ok(diff)
-    }
-
-    pub fn set_head(&self, reference: &Ref<'_>) -> Result<(), git2::Error> {
-        self.repo.set_head_bytes(reference.0.name_bytes())
     }
 
     pub fn index(&self) -> Result<Index, git2::Error> {

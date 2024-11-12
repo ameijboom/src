@@ -14,6 +14,12 @@ use crate::{
 pub struct Opts {
     #[clap(short, long, help = "Show detailed output")]
     details: bool,
+
+    #[clap(short, long, help = "Enable (experimental) rebase mode")]
+    rebase: bool,
+
+    #[clap(help = "Branch to pull from")]
+    branch: Option<String>,
 }
 
 fn change_indicators(
@@ -52,37 +58,49 @@ fn change_indicators(
 
 pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut head = repo.head()?;
-    let branch_name = head.shorthand()?.to_string();
+    let head_branch = head.shorthand()?.to_string();
+    let branch_name = opts.branch.as_deref().unwrap_or(&head_branch);
 
-    let branch = repo.find_branch(&branch_name)?;
+    let branch = repo.find_branch(branch_name)?;
     let upstream = branch.upstream()?;
     let remote = upstream.remote_name()?;
 
     let mut remote = repo.find_remote(remote)?;
-    remote.fetch(RemoteOpts::default(), &branch_name)?;
+    remote.fetch(RemoteOpts::default(), branch_name)?;
 
     let Some(oid) = branch.upstream()?.target() else {
         return Err("invalid upstream reference".into());
     };
 
-    let commit = repo.find_annotated_commit(oid)?;
-    let (analysis, _) = repo.merge_analysis(&commit)?;
+    let old_tree = head.find_tree()?;
+    let upstream = repo.find_annotated_commit(oid)?;
+    let (analysis, _) = repo.merge_analysis(&upstream)?;
 
     if analysis.is_up_to_date() {
         println!("✓ up to date");
         return Ok(());
-    } else if !analysis.is_fast_forward() {
-        return Err("unsupported operation (no fast-forward)".into());
+    } else if analysis.is_fast_forward() {
+        let target = head.set_target(oid, "fast-forward")?;
+        repo.checkout_tree(&target.find_tree()?, true)?;
+    } else if opts.rebase {
+        let Some(oid) = head.target() else {
+            return Err("invalid branch reference".into());
+        };
+
+        let local = repo.find_annotated_commit(oid)?;
+        repo.rebase(&local, &upstream)?;
+
+        let oid = repo.head()?.target().unwrap();
+        let reference = repo.create_ref(head.name()?, oid)?;
+
+        repo.checkout(&reference)?;
+    } else {
+        return Err("unable to fast-forward (rebase disabled)".into());
     }
-
-    let old_tree = head.find_tree()?;
-    let target = head.set_target(oid, "fast-forward")?;
-
-    repo.checkout_tree(&target.find_tree()?, true)?;
 
     println!(
         "Updated {} to {} {}{}{}",
-        render::branch(&branch_name),
+        render::branch(branch_name),
         render::commit(oid),
         "(".bright_black(),
         change_indicators(&repo, &old_tree, opts.details)
@@ -91,7 +109,8 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         ")".bright_black(),
     );
 
-    let commit = target.find_commit()?;
+    let head = repo.head()?;
+    let commit = head.find_commit()?;
 
     println!(
         "\n{}\n\n{}",

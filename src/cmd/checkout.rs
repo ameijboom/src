@@ -93,7 +93,5 @@ pub fn run(mut repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         repo.checkout(&branch.into())?;
     }
 
-    repo.set_head(&repo.find_branch(&branch_name)?.into())?;
-
     super::status::run(repo)
 }

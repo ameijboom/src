@@ -23,6 +23,7 @@ impl<'a> From<git2::Tree<'a>> for Tree<'a> {
     }
 }
 
+#[allow(dead_code)]
 pub struct Object<'a>(pub git2::Object<'a>);
 
 impl<'a> From<git2::Object<'a>> for Object<'a> {
