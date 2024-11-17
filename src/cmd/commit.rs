@@ -26,8 +26,8 @@ fn branch_name(message: &str) -> String {
     if let Some((prefix, name)) = message.split_once(':') {
         return format!(
             "{}/{}",
-            prefix.trim().replace(' ', "-"),
-            name.trim().replace(' ', "-")
+            prefix.trim().replace([' ', '/'], "-"),
+            name.trim().replace([' ', '/'], "-"),
         );
     }
 

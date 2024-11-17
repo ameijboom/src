@@ -36,12 +36,12 @@ impl<'a> Entry<'a> {
 
     pub fn status(&self) -> EntryStatus {
         match self.entry.status() {
+            s if s.is_wt_renamed() => EntryStatus::WorkTree(Change::Renamed),
+            s if s.is_index_renamed() => EntryStatus::Index(Change::Renamed),
             s if s.is_wt_new() => EntryStatus::WorkTree(Change::New),
             s if s.is_index_new() => EntryStatus::Index(Change::New),
             s if s.is_wt_modified() => EntryStatus::WorkTree(Change::Modified),
             s if s.is_index_modified() => EntryStatus::Index(Change::Modified),
-            s if s.is_wt_renamed() => EntryStatus::WorkTree(Change::Renamed),
-            s if s.is_index_renamed() => EntryStatus::Index(Change::Renamed),
             s if s.is_wt_deleted() => EntryStatus::WorkTree(Change::Deleted),
             s if s.is_index_deleted() => EntryStatus::Index(Change::Deleted),
             s if s.is_wt_typechange() => EntryStatus::WorkTree(Change::Type),

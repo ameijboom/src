@@ -383,7 +383,9 @@ impl Repo {
                     .include_ignored(false)
                     .include_untracked(true)
                     .recurse_untracked_dirs(true)
-                    .exclude_submodules(true),
+                    .exclude_submodules(true)
+                    .rename_threshold(50)
+                    .renames_head_to_index(true),
             ))?,
         ))
     }
