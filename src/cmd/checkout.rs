@@ -53,14 +53,14 @@ fn find_remote_branch<'a>(
 
         remote.fetch(RemoteOpts::default(), branch_name)?;
 
-        let branch = repo
-            .find_remote_branch(&format!("{}/{branch_name}", name))?
-            .into_ref();
+        let upstream = format!("{}/{branch_name}", name);
+        let branch = repo.find_remote_branch(&upstream)?.into_ref();
         let commit = branch.find_commit()?;
 
-        println!("Tracking remote branch");
+        let mut new_branch = repo.create_branch(branch_name, &commit)?;
+        new_branch.set_upstream(&upstream)?;
 
-        return Ok(Some(repo.create_branch(branch_name, &commit)?));
+        return Ok(Some(new_branch));
     }
 
     Ok(None)
