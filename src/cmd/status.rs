@@ -28,8 +28,12 @@ fn show_branch(repo: &Repo) -> Result<(), Box<dyn Error>> {
 
 fn remote_state_indicators(repo: &Repo) -> Result<Option<String>, Box<dyn Error>> {
     let head = repo.head()?;
-    let upstream = repo.find_upstream_branch(&head)?.and_then(|r| r.target());
-    let (Some(local), Some(remote)) = (head.target(), upstream) else {
+    let local = head.target()?;
+    let upstream = repo
+        .find_upstream_branch(&head)?
+        .map(|r| r.target())
+        .transpose()?;
+    let Some(remote) = upstream else {
         return Ok(None);
     };
 

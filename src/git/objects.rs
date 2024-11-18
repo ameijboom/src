@@ -96,6 +96,10 @@ impl<'a> Commit<'a> {
         self.0.id()
     }
 
+    pub fn find_tree(&self) -> Result<Tree<'a>, git2::Error> {
+        self.0.tree().map(Into::into)
+    }
+
     pub fn author(&self) -> Signature<'_> {
         self.0.author()
     }
@@ -128,11 +132,21 @@ impl<'a> Commit<'a> {
     }
 
     pub fn parent(&self) -> Result<Option<Commit<'a>>, git2::Error> {
+        self.parent_n(1)
+    }
+
+    pub fn parent_n(&self, n: usize) -> Result<Option<Commit<'a>>, git2::Error> {
         if self.0.parent_count() == 0 {
             return Ok(None);
         }
 
-        Ok(Some(self.0.parent(0)?.into()))
+        let parent = self.0.parent(0)?.into();
+
+        if n == 1 {
+            return Ok(Some(parent));
+        }
+
+        parent.parent_n(n - 1)
     }
 
     pub fn is_signed(&self) -> bool {
@@ -178,8 +192,14 @@ impl<'a> Ref<'a> {
         Ok(git2::Branch::wrap(self.0).into())
     }
 
-    pub fn target(&self) -> Option<git2::Oid> {
-        self.0.target()
+    pub fn target(&self) -> Result<git2::Oid, git2::Error> {
+        self.0.target().ok_or_else(|| {
+            git2::Error::new(
+                git2::ErrorCode::NotFastForward,
+                git2::ErrorClass::Reference,
+                "missing target",
+            )
+        })
     }
 
     pub fn set_target(&mut self, oid: git2::Oid, message: &str) -> Result<Ref<'_>, git2::Error> {

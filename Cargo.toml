@@ -14,6 +14,7 @@ http = "1.1.0"
 indicatif = "0.17.8"
 inquire = "0.7.5"
 minus = { version = "5.6.1", features = ["static_output", "search", "dynamic_output"] }
+nom = "7.1.3"
 regex = "1.11.1"
 skim = { version = "0.10.4", default-features = false }
 ssh2-config = { git = "https://github.com/dmeijboom/ssh2-config", rev = "e9d528a16700d0b5769948896327e3f6871bf584" }

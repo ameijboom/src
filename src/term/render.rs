@@ -2,7 +2,7 @@ use std::error::Error;
 
 use colored::Color;
 
-use crate::git::Ref;
+use crate::git::{Optional, Ref};
 
 use super::fmt::FmtString;
 
@@ -22,7 +22,7 @@ pub fn reference(reference: &Ref<'_>) -> Result<FmtString, Box<dyn Error>> {
     if reference.is_branch() || reference.is_tag() {
         Ok(branch(reference.shorthand()?))
     } else {
-        match reference.target() {
+        match reference.target().optional()? {
             Some(oid) => Ok(commit(oid)),
             None => Ok(FmtString::new("<unknown>".to_string())),
         }

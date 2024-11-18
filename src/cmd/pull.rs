@@ -80,11 +80,9 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         let target = head.set_target(oid, "fast-forward")?;
         repo.checkout_tree(&target.find_tree()?, true)?;
     } else if opts.rebase {
-        let Some(oid) = head.target() else {
-            return Err("invalid branch reference".into());
-        };
-
+        let oid = head.target()?;
         let local = repo.find_annotated_commit(oid)?;
+
         repo.rebase(&local, &upstream)?;
 
         let oid = repo.head()?.target().unwrap();

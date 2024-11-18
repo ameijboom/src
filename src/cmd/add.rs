@@ -28,7 +28,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
             .map(|p| p.path().map(|p| p.to_string()))
             .collect::<Result<Vec<_>, _>>()?;
 
-        select::multi(&files, Some("src diff {}"))?
+        select::multi(&files, Some("src diff {} --all"))?
     } else {
         opts.targets
     };

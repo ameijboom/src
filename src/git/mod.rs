@@ -6,6 +6,7 @@ mod index;
 mod objects;
 mod remote;
 mod repo;
+mod resolve;
 mod signer;
 mod status;
 
@@ -13,6 +14,7 @@ pub use config::Config;
 pub use objects::*;
 pub use remote::RemoteOpts;
 pub use repo::{CheckoutError, DiffOpts, Repo};
+pub use resolve::Pattern;
 pub use status::*;
 
 pub trait Optional<T> {

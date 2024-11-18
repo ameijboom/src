@@ -1,7 +1,7 @@
 use std::{
     error::Error,
     fmt::Write as _,
-    io::{BufRead, BufReader, Write},
+    io::{stdout, BufRead, BufReader, IsTerminal, Write},
     process::{Command, Stdio},
     thread,
 };
@@ -11,10 +11,7 @@ use git2::{Diff, DiffFormat};
 use minus::Pager;
 use which::which;
 
-use crate::{
-    git::{DiffOpts, Optional, Repo},
-    term::render,
-};
+use crate::git::{DiffOpts, Pattern, Repo};
 
 fn render_diff(diff: &Diff) -> Result<Vec<u8>, git2::Error> {
     let mut output = vec![];
@@ -67,15 +64,21 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         diff_opts = diff_opts.with_all(&tree);
     }
 
-    let (diff, dst) = if let Some(filter) = opts.filter {
-        if let Some(reference) = repo.find_ref_by_shortname(&filter).optional()? {
-            let tree = reference.find_tree()?;
-            (repo.diff(diff_opts.with_all(&tree))?, Some(reference))
+    let diff = if let Some(ref filter) = opts.filter {
+        if let Ok((_, pat)) = Pattern::parse(filter) {
+            if let Some(oid) = pat.resolve(&repo)? {
+                let commit = repo.find_commit(oid)?;
+                let tree = commit.find_tree()?;
+
+                repo.diff(diff_opts.with_all(&tree))?
+            } else {
+                repo.diff(diff_opts.with_pathspec(filter))?
+            }
         } else {
-            (repo.diff(diff_opts.with_pathspec(&filter))?, None)
+            repo.diff(diff_opts.with_pathspec(filter))?
         }
     } else {
-        (repo.diff(diff_opts)?, None)
+        repo.diff(diff_opts)?
     };
 
     if opts.patch {
@@ -102,13 +105,11 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
                 return Ok(());
             }
 
-            let pager = Pager::new();
-            let summary = match dst {
-                Some(dst) => format!("{}..{}", head.shorthand()?, dst.shorthand()?),
-                None => format!("at {}", render::reference(&head)?.into_inner()),
-            };
-
-            pager.set_prompt(format!("diff {}, q to quit", summary))?;
+            let mut pager = Pager::new();
+            pager.set_prompt(format!(
+                "diff {}, q to quit",
+                opts.filter.as_deref().unwrap_or("HEAD")
+            ))?;
 
             let mut stdin = child.stdin.take().unwrap();
             let diff = render_diff(&diff)?;
@@ -118,17 +119,28 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
                 stdin.flush()
             });
 
-            let mut p = pager.clone();
-            thread::spawn(move || {
+            if stdout().is_terminal() {
+                let mut p = pager.clone();
+                thread::spawn(move || {
+                    let stdout = BufReader::new(child.stdout.unwrap());
+                    let mut lines = stdout.lines();
+
+                    while let Some(Ok(line)) = lines.next() {
+                        let _ = writeln!(p, "{}", line);
+                    }
+                });
+
+                minus::dynamic_paging(pager)?;
+            } else {
                 let stdout = BufReader::new(child.stdout.unwrap());
                 let mut lines = stdout.lines();
 
                 while let Some(Ok(line)) = lines.next() {
-                    let _ = writeln!(p, "{}", line);
+                    let _ = writeln!(pager, "{}", line);
                 }
-            });
 
-            minus::dynamic_paging(pager)?;
+                minus::page_all(pager)?;
+            }
         }
         Err(_) => println!("{}", String::from_utf8(render_diff(&diff)?)?),
     }
