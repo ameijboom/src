@@ -19,10 +19,6 @@ impl FmtString {
         self.color = Some(color.into());
         self
     }
-
-    pub fn into_inner(self) -> String {
-        self.content
-    }
 }
 
 impl Display for FmtString {

@@ -122,6 +122,7 @@ fn parse_sideband_progress(re: &Regex, line: &[u8]) -> Option<(String, usize, us
     None
 }
 
+#[allow(dead_code)]
 pub struct Update {
     pub src: Oid,
     pub dst: Oid,
@@ -252,6 +253,7 @@ impl RemoteOpts {
 
 pub struct Reply {
     pub stdout: Vec<u8>,
+    #[allow(dead_code)]
     pub updates: Vec<Update>,
 }
 
