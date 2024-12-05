@@ -10,6 +10,7 @@ use std::{
     time::Duration,
 };
 
+use colored::Colorize;
 use git2::{Cred, Direction, FetchOptions, Oid, PushOptions, RemoteCallbacks};
 use http::Uri;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -52,6 +53,7 @@ struct Progress {
 
 struct State<'a> {
     bar: &'a mut ProgressBar,
+    index: Progress,
     pack: Progress,
     push: Progress,
     count: Progress,
@@ -63,6 +65,7 @@ impl<'a> State<'a> {
     fn new(bar: &'a mut ProgressBar) -> Self {
         Self {
             bar,
+            index: Progress::default(),
             pack: Progress::default(),
             push: Progress::default(),
             count: Progress::default(),
@@ -76,6 +79,7 @@ impl<'a> State<'a> {
         let mut current = 0;
 
         for progress in [
+            &self.index,
             &self.pack,
             &self.push,
             &self.count,
@@ -96,8 +100,18 @@ impl<'a> State<'a> {
         self.bar.set_position(current as u64);
 
         if total > 0 {
-            self.bar
-                .set_message(format!("({current}/{total}) {}", message.into()));
+            let max = 20;
+            let len = ((current as f64 / total as f64) * max as f64) as usize;
+            let arrows = format!("{}>", "=".repeat(len));
+            let ws = " ".repeat(max - len);
+
+            self.bar.set_message(format!(
+                "{}{}{} {}",
+                "[".blue().bold(),
+                format!("{arrows}{ws}").bright_black(),
+                "]".blue().bold(),
+                message.into()
+            ));
         } else {
             self.bar.set_message(message);
         }
@@ -152,6 +166,11 @@ impl Default for RemoteOpts {
 }
 
 impl RemoteOpts {
+    pub fn with_message(self, message: impl Into<Cow<'static, str>>) -> Self {
+        self.bar.set_message(message);
+        self
+    }
+
     pub fn with_compare(mut self, compare: Oid) -> Self {
         self.compare = Some(compare);
         self
@@ -203,6 +222,21 @@ impl RemoteOpts {
             state.pack.total.store(total, Ordering::Relaxed);
             state.update("Packing");
         });
+
+        //let state = Arc::clone(&global_state);
+        //
+        //callbacks.transfer_progress(move |progress| {
+        //    state.index.total.store(
+        //        progress.total_objects() + progress.total_deltas(),
+        //        Ordering::Relaxed,
+        //    );
+        //    state.index.total.store(
+        //        progress.indexed_objects() + progress.indexed_deltas(),
+        //        Ordering::Relaxed,
+        //    );
+        //    state.update("Indexing");
+        //    true
+        //});
 
         let state = Arc::clone(&global_state);
 

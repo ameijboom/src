@@ -2,6 +2,7 @@ pub mod add;
 pub mod amend;
 pub mod branch;
 pub mod checkout;
+pub mod clone;
 pub mod commit;
 pub mod diff;
 pub mod fetch;
