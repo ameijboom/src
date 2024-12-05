@@ -28,8 +28,10 @@ struct Opts {
 #[derive(Parser)]
 enum Cmd {
     Add(cmd::add::Opts),
-    Feat(cmd::commit::Opts),
     Fix(cmd::commit::Opts),
+    Feat(cmd::commit::Opts),
+    Refactor(cmd::commit::Opts),
+    Chore(cmd::commit::Opts),
     Commit(cmd::commit::Opts),
     Amend(cmd::amend::Opts),
     Push(cmd::push::Opts),
@@ -64,14 +66,10 @@ fn main() {
         match opts.cmd {
             Some(cmd) => match cmd {
                 Cmd::Add(opts) => cmd::add::run(repo, opts),
-                Cmd::Feat(mut opts) => {
-                    opts.message = format!("feat: {}", opts.message);
-                    cmd::commit::run(repo, opts)
-                }
-                Cmd::Fix(mut opts) => {
-                    opts.message = format!("fix: {}", opts.message);
-                    cmd::commit::run(repo, opts)
-                }
+                Cmd::Fix(opts) => cmd::commit::with_prefix("fix", repo, opts),
+                Cmd::Feat(opts) => cmd::commit::with_prefix("feat", repo, opts),
+                Cmd::Chore(opts) => cmd::commit::with_prefix("chore", repo, opts),
+                Cmd::Refactor(opts) => cmd::commit::with_prefix("refactor", repo, opts),
                 Cmd::Commit(opts) => cmd::commit::run(repo, opts),
                 Cmd::Amend(opts) => cmd::amend::run(repo, opts),
                 Cmd::Push(opts) => cmd::push::run(repo, opts),

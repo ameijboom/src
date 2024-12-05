@@ -85,3 +85,8 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+pub fn with_prefix(prefix: &str, repo: Repo, mut opts: Opts) -> Result<(), Box<dyn Error>> {
+    opts.message = format!("{prefix}: {}", opts.message);
+    run(repo, opts)
+}
