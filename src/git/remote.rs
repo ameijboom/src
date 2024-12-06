@@ -53,7 +53,6 @@ struct Progress {
 
 struct State<'a> {
     bar: &'a mut ProgressBar,
-    index: Progress,
     pack: Progress,
     push: Progress,
     count: Progress,
@@ -65,7 +64,6 @@ impl<'a> State<'a> {
     fn new(bar: &'a mut ProgressBar) -> Self {
         Self {
             bar,
-            index: Progress::default(),
             pack: Progress::default(),
             push: Progress::default(),
             count: Progress::default(),
@@ -79,7 +77,6 @@ impl<'a> State<'a> {
         let mut current = 0;
 
         for progress in [
-            &self.index,
             &self.pack,
             &self.push,
             &self.count,
@@ -222,21 +219,6 @@ impl RemoteOpts {
             state.pack.total.store(total, Ordering::Relaxed);
             state.update("Packing");
         });
-
-        //let state = Arc::clone(&global_state);
-        //
-        //callbacks.transfer_progress(move |progress| {
-        //    state.index.total.store(
-        //        progress.total_objects() + progress.total_deltas(),
-        //        Ordering::Relaxed,
-        //    );
-        //    state.index.total.store(
-        //        progress.indexed_objects() + progress.indexed_deltas(),
-        //        Ordering::Relaxed,
-        //    );
-        //    state.update("Indexing");
-        //    true
-        //});
 
         let state = Arc::clone(&global_state);
 
