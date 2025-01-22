@@ -35,7 +35,7 @@ fn parent(pattern: &str) -> IResult<&str, Pattern<'_>> {
 }
 
 impl<'a> Pattern<'a> {
-    pub fn parse(pattern: &'a str) -> IResult<&str, Self> {
+    pub fn parse(pattern: &'a str) -> IResult<&'a str, Self> {
         let (input, name) = alt((parent, prefix)).parse(pattern)?;
         Ok((input, name))
     }
