@@ -115,6 +115,21 @@ impl<'a> DiffOpts<'a> {
     }
 }
 
+fn map_unique_commits(
+    repo: &git2::Repository,
+    base: git2::Oid,
+    tip: git2::Oid,
+) -> Result<Vec<Commit<'_>>, git2::Error> {
+    let mut revwalk = repo.revwalk()?;
+    revwalk.push(tip)?;
+    revwalk.hide(base)?;
+    let oids = revwalk.collect::<Result<Vec<_>, _>>()?;
+
+    oids.into_iter()
+        .map(|oid| repo.find_commit(oid).map(Commit::from))
+        .collect::<Result<Vec<_>, _>>()
+}
+
 pub struct Repo {
     repo: git2::Repository,
 }
@@ -405,6 +420,18 @@ impl Repo {
         remote: git2::Oid,
     ) -> Result<(usize, usize), git2::Error> {
         self.repo.graph_ahead_behind(local, remote)
+    }
+
+    pub fn commits_ahead_behind(
+        &self,
+        local: git2::Oid,
+        remote: git2::Oid,
+    ) -> Result<(Vec<Commit<'_>>, Vec<Commit<'_>>), git2::Error> {
+        let merge_base = self.repo.merge_base(local, remote)?;
+        let ahead = map_unique_commits(&self.repo, merge_base, local)?;
+        let behind = map_unique_commits(&self.repo, merge_base, remote)?;
+
+        Ok((ahead, behind))
     }
 
     pub fn state(&self) -> git2::RepositoryState {

@@ -34,6 +34,14 @@ impl<'a> Entry<'a> {
         std::str::from_utf8(self.entry.path_bytes())
     }
 
+    pub fn is_staged(&self) -> bool {
+        self.entry.status().is_index_new()
+            || self.entry.status().is_index_modified()
+            || self.entry.status().is_index_deleted()
+            || self.entry.status().is_index_renamed()
+            || self.entry.status().is_index_typechange()
+    }
+
     pub fn status(&self) -> EntryStatus {
         match self.entry.status() {
             s if s.is_wt_renamed() => EntryStatus::WorkTree(Change::Renamed),
