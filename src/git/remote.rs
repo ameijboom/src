@@ -7,15 +7,14 @@ use std::{
         atomic::{AtomicUsize, Ordering},
         Arc,
     },
-    time::Duration,
 };
 
-use colored::Colorize;
 use git2::{Cred, Direction, FetchOptions, Oid, PushOptions, RemoteCallbacks};
 use http::Uri;
-use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 use ssh2_config::{ParseRule, SshConfig};
+
+use crate::term::bar::Bar;
 
 fn get_credentials(url: &str, username: Option<&str>) -> Result<Cred, git2::Error> {
     let mut username = username.unwrap_or_default().to_string();
@@ -52,7 +51,7 @@ struct Progress {
 }
 
 struct State<'a> {
-    bar: &'a mut ProgressBar,
+    bar: &'a mut Bar,
     pack: Progress,
     push: Progress,
     count: Progress,
@@ -61,7 +60,7 @@ struct State<'a> {
 }
 
 impl<'a> State<'a> {
-    fn new(bar: &'a mut ProgressBar) -> Self {
+    fn new(bar: &'a mut Bar) -> Self {
         Self {
             bar,
             pack: Progress::default(),
@@ -93,25 +92,8 @@ impl<'a> State<'a> {
     fn update(&self, message: impl Into<Cow<'static, str>>) {
         let (current, total) = self.progress();
 
-        self.bar.set_length(total as u64);
-        self.bar.set_position(current as u64);
-
-        if total > 0 {
-            let max = 20;
-            let len = ((current as f64 / total as f64) * max as f64) as usize;
-            let arrows = format!("{}>", "=".repeat(len));
-            let ws = " ".repeat(max - len);
-
-            self.bar.set_message(format!(
-                "{}{}{} {}",
-                "[".blue().bold(),
-                format!("{arrows}{ws}").bright_black(),
-                "]".blue().bold(),
-                message.into()
-            ));
-        } else {
-            self.bar.set_message(message);
-        }
+        self.bar.update(current, total);
+        self.bar.set_message(message.into());
     }
 }
 
@@ -141,21 +123,17 @@ pub struct Update {
 }
 
 pub struct RemoteOpts {
+    bar: Bar,
     stdout: Vec<u8>,
-    bar: ProgressBar,
     compare: Option<Oid>,
     updates: Vec<Update>,
 }
 
 impl Default for RemoteOpts {
     fn default() -> Self {
-        let bar = ProgressBar::new_spinner()
-            .with_style(ProgressStyle::with_template("{spinner} {msg}").unwrap());
-        bar.enable_steady_tick(Duration::from_millis(50));
-
         Self {
+            bar: Bar::default(),
             stdout: vec![],
-            bar,
             compare: None,
             updates: vec![],
         }
@@ -163,9 +141,11 @@ impl Default for RemoteOpts {
 }
 
 impl RemoteOpts {
-    pub fn with_message(self, message: impl Into<Cow<'static, str>>) -> Self {
-        self.bar.set_message(message);
-        self
+    pub fn with_bar(bar: Bar) -> Self {
+        Self {
+            bar,
+            ..RemoteOpts::default()
+        }
     }
 
     pub fn with_compare(mut self, compare: Oid) -> Self {
@@ -258,8 +238,6 @@ impl RemoteOpts {
     }
 
     pub fn into_reply(self) -> Reply {
-        self.bar.finish_and_clear();
-
         Reply {
             stdout: self.stdout,
             updates: self.updates,

@@ -1,6 +1,7 @@
 use inquire::{error::InquireResult, ui::RenderConfig, Confirm};
 
 pub mod fmt;
+pub mod bar;
 pub mod render;
 pub mod select;
 
