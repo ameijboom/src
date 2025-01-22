@@ -6,7 +6,7 @@ use git2::ErrorCode;
 
 use crate::{
     git::{Branch, Config, RemoteOpts, Repo},
-    term::render,
+    term::{bar::Bar, render},
 };
 
 #[derive(Parser)]
@@ -51,15 +51,16 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let target = branch.upstream()?.target()?;
     let remote_name = upstream.remote_name()?;
     let mut remote = repo.find_remote(remote_name)?;
+    let bar = Bar::default();
 
-    println!(
+    bar.writeln(format!(
         "Pushing to: {} / {}",
         render::remote(remote_name),
         render::branch(branch.name()?),
-    );
+    ));
 
     let reply = remote.push(
-        RemoteOpts::default().with_compare(target),
+        RemoteOpts::with_bar(bar).with_compare(target),
         &if opts.force {
             format!("+{refname}")
         } else {
