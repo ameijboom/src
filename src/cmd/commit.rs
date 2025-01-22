@@ -70,7 +70,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     }
 
     println!(
-        "Created {} {}{}{}",
+        "↪ Created {} {}{}{}",
         render::commit(oid),
         "(".bright_black(),
         if indicators.is_empty() {

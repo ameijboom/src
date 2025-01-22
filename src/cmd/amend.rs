@@ -64,7 +64,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     };
 
     head.set_target(oid, &format!("commit amended: {message}"))?;
-    println!("Created {}", render::commit(oid));
+    println!("↪ Created {}", render::commit(oid));
 
     Ok(())
 }
