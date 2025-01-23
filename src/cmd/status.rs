@@ -1,97 +1,118 @@
 use std::error::Error;
+use std::fmt::Write;
 
-use colored::{Color, Colorize};
+use clap::Parser;
 use git2::{ErrorCode, RepositoryState};
+use minus::Pager;
 
 use crate::{
     git::{Change, EntryStatus, Repo},
-    term::render,
+    term::ui::{Attribute, Builder, Icon, Indicator, Node, Status},
 };
 
-const HEADER: Color = Color::TrueColor {
-    r: 225,
-    g: 190,
-    b: 120,
-};
+#[derive(Parser, Default)]
+#[clap(about = "Show status")]
+pub struct Opts {
+    #[clap(long, help = "Disable the pager")]
+    no_pager: bool,
+}
 
-fn show_branch(repo: &Repo, state: Option<(git2::Oid, git2::Oid)>) -> Result<(), Box<dyn Error>> {
-    let indicators = state
-        .and_then(|state| {
-            remote_state_indicators(repo, state)
-                .ok()
-                .flatten()
-                .map(|s| format!("{}{s}{} ", "[".bright_black(), "]".bright_black()))
-        })
-        .unwrap_or_default();
+fn render_branch(
+    repo: &Repo,
+    state: Option<(git2::Oid, git2::Oid)>,
+) -> Result<Node, Box<dyn Error>> {
+    let mut group = vec![];
 
     match repo.head() {
         Ok(head) => {
             let commit = head.find_commit()?;
-            let message = commit.message()?.lines().next().unwrap_or_default().trim();
 
-            println!(
-                "{indicators}{} {}",
-                render::reference(&head)?.with_bold(),
-                if message.len() > 40 {
-                    format!("{}...", &message[..37])
-                } else {
-                    message.to_string()
-                }
-                .bright_black(),
-            );
+            group.push(Node::Attribute(Attribute::from_ref(&head)?));
+            group.push(Node::spacer());
+
+            if let Some(indicators) =
+                state.and_then(|state| remote_state_indicators(repo, state).ok().flatten())
+            {
+                group.push(Node::Label(Box::new(indicators)));
+                group.push(Node::spacer());
+            };
+
+            group.push(Node::text_capped(
+                commit
+                    .message()?
+                    .lines()
+                    .next()
+                    .unwrap_or_default()
+                    .to_string(),
+                75,
+            ));
         }
         Err(e) if e.code() == ErrorCode::UnbornBranch => {
-            println!("On {}{indicators}", "[no branch]".yellow());
+            group.push(Node::Attribute(Attribute::Branch("[no branch]".into())));
         }
         Err(e) => return Err(e.into()),
     };
 
-    Ok(())
+    Ok(Node::Block(group))
 }
 
 fn remote_state_indicators(
     repo: &Repo,
     state: (git2::Oid, git2::Oid),
-) -> Result<Option<String>, Box<dyn Error>> {
+) -> Result<Option<Node>, Box<dyn Error>> {
     let (local, remote) = state;
     let (ahead, behind) = repo.graph_ahead_behind(local, remote)?;
 
-    if ahead == 0 && behind == 0 {
-        Ok(None)
+    Ok(if ahead == 0 && behind == 0 {
+        None
     } else if ahead == 0 && behind != 0 {
-        Ok(Some(format!("{} {}", "↓".red(), behind)))
+        Some(Node::Block(vec![
+            Node::Icon(Icon::ArrowDown).with_status(Status::Error),
+            Node::spacer(),
+            Node::Text(behind.to_string().into()),
+        ]))
     } else if behind == 0 && ahead != 0 {
-        Ok(Some(format!("{} {}", "↑".green(), ahead)))
+        Some(Node::Block(vec![
+            Node::Icon(Icon::ArrowUp).with_status(Status::Success),
+            Node::spacer(),
+            Node::Text(ahead.to_string().into()),
+        ]))
     } else {
-        Ok(Some(format!(
-            "{} {} {} {}",
-            "↑".green(),
-            ahead,
-            "↓".red(),
-            behind
-        )))
-    }
+        Some(Node::Block(vec![
+            Node::Icon(Icon::ArrowUp).with_status(Status::Success),
+            Node::spacer(),
+            Node::Text(ahead.to_string().into()),
+            Node::spacer(),
+            Node::Icon(Icon::ArrowDown).with_status(Status::Error),
+            Node::Text(behind.to_string().into()),
+        ]))
+    })
 }
 
-fn show_state(repo: &Repo) -> Result<(), Box<dyn Error>> {
-    match repo.state() {
-        RepositoryState::Merge => println!("In merge"),
-        RepositoryState::Revert | RepositoryState::RevertSequence => println!("In revert"),
+fn render_state(repo: &Repo) -> Result<Option<Node>, Box<dyn Error>> {
+    Ok(match repo.state() {
+        RepositoryState::Merge => Some(Node::Text("In merge".into())),
+        RepositoryState::Revert | RepositoryState::RevertSequence => {
+            Some(Node::Text("In revert".into()))
+        }
         RepositoryState::CherryPick | RepositoryState::CherryPickSequence => {
-            println!("In cherrypick")
+            Some(Node::Text("In cherrypick".into()))
         }
         RepositoryState::Bisect => todo!(),
         // See: https://github.com/libgit2/libgit2/issues/6332
         RepositoryState::Rebase
         | RepositoryState::RebaseInteractive
-        | RepositoryState::RebaseMerge => println!("In rebase"),
-        _ => {}
-    }
-
-    Ok(())
+        | RepositoryState::RebaseMerge => Some(Node::Text("In rebase".into())),
+        _ => None,
+    })
 }
 
-fn show_commits(repo: &Repo, local: git2::Oid, remote: git2::Oid) -> Result<(), Box<dyn Error>> {
+fn render_commits(
+    repo: &Repo,
+    local: git2::Oid,
+    remote: git2::Oid,
+) -> Result<Node, Box<dyn Error>> {
+    let mut children = vec![];
     let (ahead, behind) = repo.commits_ahead_behind(local, remote)?;
     let groups = [
         ("Unmerged into remote", ahead),
@@ -103,39 +124,37 @@ fn show_commits(repo: &Repo, local: git2::Oid, remote: git2::Oid) -> Result<(), 
             continue;
         }
 
-        println!(
-            "\n{}",
-            format!(
-                "{} {}",
-                format!("{name}").color(HEADER).bold(),
-                format!("({})", commits.len()).bright_black(),
-            ),
-        );
+        let count = commits.len();
+        let mut lines = vec![];
 
         for commit in commits {
-            let signed = if commit.is_signed() {
-                "⚿ ".green()
-            } else {
-                "  ".white()
-            };
-            let message = commit.message().unwrap_or_default().trim();
+            let id = commit.id().to_string();
 
-            println!(
-                "{signed}{} {}",
-                render::commit(commit.id()).with_color(Color::BrightGreen),
-                if message.len() > 40 {
-                    format!("{}...", &message[..37])
+            lines.push(Node::Block(vec![
+                if commit.is_signed() {
+                    Node::Icon(Icon::Lock).with_status(Status::Success)
                 } else {
-                    message.to_string()
-                }
-            );
+                    Node::spacer()
+                },
+                Node::spacer(),
+                Node::Dimmed(Box::new(Node::Text(id[..6].to_string().into()))),
+                Node::spacer(),
+                Node::text_head_1(commit.message().unwrap_or_default()),
+            ]));
         }
+
+        children.push(Node::Group(
+            name.into(),
+            Some(count),
+            Box::new(Node::MultiLine(lines)),
+        ));
     }
 
-    Ok(())
+    Ok(Node::MultiLine(children))
 }
 
-fn show_changes(repo: &Repo) -> Result<(), Box<dyn Error>> {
+fn render_changes(repo: &Repo) -> Result<Node, Box<dyn Error>> {
+    let mut children = vec![];
     let status = repo.status()?;
     let entries = status.entries().collect::<Vec<_>>();
     let (staged, unstaged): (Vec<_>, Vec<_>) = entries.into_iter().partition(|e| e.is_staged());
@@ -146,14 +165,8 @@ fn show_changes(repo: &Repo) -> Result<(), Box<dyn Error>> {
             continue;
         }
 
-        println!(
-            "\n{}",
-            format!(
-                "{} {}",
-                format!("{name}").color(HEADER).bold(),
-                format!("({})", entries.len()).bright_black(),
-            ),
-        );
+        let count = entries.len();
+        let mut lines = vec![];
 
         for entry in entries {
             let change = match entry.status() {
@@ -162,18 +175,30 @@ fn show_changes(repo: &Repo) -> Result<(), Box<dyn Error>> {
                 EntryStatus::Index(change) => Some(change),
             };
             let indicator = match change {
-                Some(Change::New) => "+".green(),
-                Some(Change::Modified) => "~".yellow(),
-                Some(Change::Renamed) => ">".yellow(),
-                Some(Change::Deleted) => "-".red(),
-                None | Some(Change::Type) => "?".bright_black(),
+                Some(Change::New) => Indicator::New,
+                Some(Change::Modified) => Indicator::Modified,
+                Some(Change::Renamed) => Indicator::Renamed,
+                Some(Change::Deleted) => Indicator::Deleted,
+                None | Some(Change::Type) => Indicator::Unknown,
             };
 
-            println!("  {} {}", indicator.bold(), entry.path()?);
+            lines.push(Node::Block(vec![
+                Node::spacer(),
+                Node::spacer(),
+                Node::Indicator(indicator),
+                Node::spacer(),
+                Node::Text(entry.path()?.to_string().into()),
+            ]));
         }
+
+        children.push(Node::Group(
+            name.into(),
+            Some(count),
+            Box::new(Node::MultiLine(lines)),
+        ));
     }
 
-    Ok(())
+    Ok(Node::MultiLine(children))
 }
 
 fn find_state(repo: &Repo) -> Result<Option<(git2::Oid, git2::Oid)>, Box<dyn Error>> {
@@ -190,15 +215,32 @@ fn find_state(repo: &Repo) -> Result<Option<(git2::Oid, git2::Oid)>, Box<dyn Err
     Ok(Some((local, remote)))
 }
 
-pub fn run(repo: Repo) -> Result<(), Box<dyn Error>> {
+fn render(repo: Repo) -> Result<Node, Box<dyn Error>> {
     let state = find_state(&repo)?;
 
-    show_branch(&repo, state)?;
-    show_state(&repo)?;
-    show_changes(&repo)?;
+    Ok(Builder::default()
+        .and(render_branch(&repo, state)?)
+        .and(render_state(&repo)?)
+        .and(render_changes(&repo)?)
+        .and(
+            state
+                .map(|(local, remote)| render_commits(&repo, local, remote))
+                .transpose()?,
+        )
+        .build())
+}
 
-    if let Some((local, remote)) = state {
-        show_commits(&repo, local, remote)?;
+pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
+    let node = render(repo)?;
+
+    if opts.no_pager {
+        println!("{node}");
+    } else {
+        let mut pager = Pager::new();
+        pager.set_prompt("status, q to quit")?;
+
+        writeln!(&mut pager, "{node}")?;
+        minus::page_all(pager)?;
     }
 
     Ok(())

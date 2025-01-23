@@ -122,22 +122,12 @@ pub struct Update {
     pub refname: String,
 }
 
+#[derive(Default)]
 pub struct RemoteOpts {
     bar: Bar,
     stdout: Vec<u8>,
     compare: Option<Oid>,
     updates: Vec<Update>,
-}
-
-impl Default for RemoteOpts {
-    fn default() -> Self {
-        Self {
-            bar: Bar::default(),
-            stdout: vec![],
-            compare: None,
-            updates: vec![],
-        }
-    }
 }
 
 impl RemoteOpts {
@@ -259,7 +249,7 @@ impl<'a> From<git2::Remote<'a>> for Remote<'a> {
     }
 }
 
-impl<'a> Remote<'a> {
+impl Remote<'_> {
     pub fn name(&self) -> Result<Option<&str>, Utf8Error> {
         self.0.name_bytes().map(std::str::from_utf8).transpose()
     }

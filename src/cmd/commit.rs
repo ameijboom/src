@@ -1,12 +1,11 @@
 use std::error::Error;
 
 use clap::Parser;
-use colored::Colorize;
 
 use crate::{
     cmd::add::add_callback,
     git::{DiffOpts, Repo},
-    term::render,
+    term::ui::{Indicator, Node, Status},
 };
 
 #[derive(Parser)]
@@ -59,29 +58,33 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
 
     let diff = repo.diff(DiffOpts::default().with_all(&old_tree))?;
     let stats = diff.stats()?;
-    let mut indicators = vec![];
+    let mut children = vec![];
 
     if stats.insertions() > 0 {
-        indicators.push(format!("+{}", stats.insertions()).green().to_string());
+        children.push(
+            Node::Block(vec![
+                Node::Indicator(Indicator::New),
+                Node::Text(stats.insertions().to_string().into()),
+            ])
+            .with_status(Status::Success),
+        );
     }
 
     if stats.deletions() > 0 {
-        indicators.push(format!("-{}", stats.deletions()).red().to_string());
+        children.push(
+            Node::Block(vec![
+                Node::Indicator(Indicator::Deleted),
+                Node::Text(stats.deletions().to_string().into()),
+            ])
+            .with_status(Status::Error),
+        );
     }
 
-    println!(
-        "↪ Created {} {}{}{}",
-        render::commit(oid),
-        "(".bright_black(),
-        if indicators.is_empty() {
-            None
-        } else {
-            Some(indicators)
-        }
-        .map(|i| i.join(" "))
-        .unwrap_or("<no changes>".to_string()),
-        ")".bright_black(),
-    );
+    if !children.is_empty() {
+        children = vec![Node::Label(Box::new(Node::Block(children))), Node::spacer()];
+    }
+
+    println!("{}", Node::Continued(Box::new(Node::Block(children))));
 
     Ok(())
 }

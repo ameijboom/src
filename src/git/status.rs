@@ -29,7 +29,7 @@ pub struct Entry<'a> {
     entry: StatusEntry<'a>,
 }
 
-impl<'a> Entry<'a> {
+impl Entry<'_> {
     pub fn path(&self) -> Result<&str, std::str::Utf8Error> {
         std::str::from_utf8(self.entry.path_bytes())
     }

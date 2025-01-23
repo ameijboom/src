@@ -2,7 +2,10 @@ use std::error::Error;
 
 use clap::Parser;
 
-use crate::git::Repo;
+use crate::{
+    git::Repo,
+    term::ui::{self, Icon},
+};
 
 #[derive(Parser)]
 #[clap(about = "Stash the changes in a dirty working directory away")]
@@ -19,7 +22,7 @@ pub fn run(mut repo: Repo, _opts: Opts) -> Result<(), Box<dyn Error>> {
 
     repo.save_stash(&message)?;
 
-    println!("✓ Changes stashed");
+    println!("{}", ui::message_with_icon(Icon::Check, "Changes stashed"));
 
     Ok(())
 }

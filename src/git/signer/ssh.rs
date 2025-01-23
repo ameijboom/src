@@ -48,7 +48,7 @@ impl<'c> SshSigner<'c> {
     }
 }
 
-impl<'c> Signer for SshSigner<'c> {
+impl Signer for SshSigner<'_> {
     fn sign(&self, content: &git2::Buf) -> Result<String, Box<dyn std::error::Error>> {
         // Aparently, we have to write this to a file
         let mut tmp = NamedTempFile::new()?;

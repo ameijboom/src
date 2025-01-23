@@ -6,7 +6,10 @@ use inquire::ui::{Color, RenderConfig};
 use crate::{
     cmd::add::add_callback,
     git::Repo,
-    term::{self, render},
+    term::{
+        self,
+        ui::{Attribute, Node, Stream},
+    },
 };
 
 #[derive(Parser)]
@@ -30,6 +33,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         index.write()?;
     }
 
+    let mut stream = Stream::default();
     let oid = index.write_tree()?;
     let mut head = repo.head()?;
     let tree = repo.find_tree(oid)?;
@@ -37,13 +41,11 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         let commit = head.find_commit()?;
 
         if !opts.yes {
-            println!(
-                "{}\n\n{}\n",
-                commit
-                    .headers_formatted()
-                    .with_color(colored::Color::BrightBlack),
-                commit.message_formatted()
-            );
+            stream.send(Node::MultiLine(vec![
+                Node::Dimmed(Box::new(commit.headers_ui())),
+                Node::spacer(),
+                Node::Text(commit.message_formatted().into()),
+            ]));
 
             let mut config = RenderConfig::default_colored();
             config.prompt.fg = Some(Color::LightCyan);
@@ -64,7 +66,12 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     };
 
     head.set_target(oid, &format!("commit amended: {message}"))?;
-    println!("↪ Created {}", render::commit(oid));
+
+    stream.send(Node::Continued(Box::new(Node::Block(vec![
+        Node::Text("Created".into()),
+        Node::spacer(),
+        Node::Attribute(Attribute::CommitShort(oid)),
+    ]))));
 
     Ok(())
 }

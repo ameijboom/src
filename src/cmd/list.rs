@@ -5,12 +5,11 @@ use std::{
 };
 
 use clap::Parser;
-use colored::{Color, Colorize};
 use minus::Pager;
 
 use crate::{
     git::{Commit, Repo},
-    term::render,
+    term::ui::{Attribute, Icon, Node, Status},
 };
 
 #[derive(Parser)]
@@ -71,7 +70,7 @@ fn list_remotes(repo: &mut Repo, mut stdout: impl fmt::Write) -> Result<(), Box<
             "{}\t{}",
             remote
                 .name()?
-                .map(|name| render::remote(name).to_string())
+                .map(|name| Node::Attribute(Attribute::Remote(name.to_string().into())).to_string())
                 .unwrap_or_else(|| "<none>".to_string()),
             remote.url()?
         )?;
@@ -87,30 +86,33 @@ fn list_commits<'a>(
 ) -> Result<(), Box<dyn Error>> {
     for commit in walk {
         let commit = commit?;
-        let signed = if commit.is_signed() {
-            "⚿ ".green()
+        let mut line = vec![];
+
+        if commit.is_signed() {
+            line.push(Node::Block(vec![
+                Node::Icon(Icon::Lock).with_status(Status::Success),
+                Node::spacer(),
+            ]));
         } else if short {
-            "  ".white()
-        } else {
-            "".white()
-        };
+            line.push(Node::spacer());
+        }
+
+        line.push(Node::Attribute(Attribute::Commit(commit.id())));
+
         let message = commit.message().unwrap_or_default().trim();
 
         if short {
-            writeln!(
-                stdout,
-                "{signed}{} {}",
-                render::commit(commit.id()),
-                message.split('\n').next().unwrap_or_default()
-            )?;
+            line.push(Node::text_head_1(message));
+            writeln!(stdout, "{}", Node::Block(line))?;
         } else {
-            writeln!(stdout, "{signed}{}", commit.id().to_string().yellow())?;
-            writeln!(
-                stdout,
-                "{}\n",
-                commit.headers_formatted().with_color(Color::BrightBlack)
-            )?;
-            writeln!(stdout, "{}\n", commit.message_formatted())?;
+            let node = Node::MultiLine(vec![
+                Node::Block(line),
+                Node::Dimmed(Box::new(commit.headers_ui())),
+                Node::spacer(),
+                Node::Text(commit.message_formatted().into()),
+            ]);
+
+            writeln!(stdout, "{node}\n")?;
         }
     }
 
@@ -120,7 +122,11 @@ fn list_commits<'a>(
 fn list_branches(repo: Repo, mut stdout: impl fmt::Write) -> Result<(), Box<dyn Error>> {
     for branch in repo.branches()? {
         let branch = branch?;
-        writeln!(stdout, "{}", render::branch(branch.name()?))?;
+        writeln!(
+            stdout,
+            "{}",
+            Node::Attribute(Attribute::Branch(branch.name()?.to_string().into()))
+        )?;
     }
 
     Ok(())

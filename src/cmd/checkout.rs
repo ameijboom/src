@@ -4,7 +4,10 @@ use clap::Parser;
 
 use crate::{
     git::{Branch, CheckoutError, Optional, Ref, RemoteOpts, Repo},
-    term::select,
+    term::{
+        select,
+        ui::{self, Icon},
+    },
 };
 
 #[derive(Parser)]
@@ -87,11 +90,14 @@ pub fn run(mut repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     if !try_checkout(&repo, &branch.into())? {
         repo.save_stash(&format!("auto stash before checkout to: {branch_name}"))?;
 
-        println!("✓ Changes stashed\n");
+        println!(
+            "{}\n",
+            ui::message_with_icon(Icon::Check, "Changes stashed")
+        );
 
         let branch = repo.find_branch(&branch_name)?;
         repo.checkout(&branch.into())?;
     }
 
-    super::status::run(repo)
+    super::status::run(repo, super::status::Opts::default())
 }

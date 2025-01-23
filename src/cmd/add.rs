@@ -1,9 +1,14 @@
 use std::{error::Error, path::Path};
 
 use clap::{Parser, ValueHint};
-use colored::Colorize;
 
-use crate::{git::Repo, term::select};
+use crate::{
+    git::Repo,
+    term::{
+        select,
+        ui::{Indicator, Node, Status},
+    },
+};
 
 #[derive(Parser)]
 #[clap(about = "Add file contents to the index")]
@@ -12,12 +17,17 @@ pub struct Opts {
     targets: Vec<String>,
 }
 
+fn file_added(path: &Path) -> Node {
+    Node::Block(vec![
+        Node::Indicator(Indicator::New),
+        Node::spacer(),
+        Node::Text(path.to_str().unwrap_or_default().to_string().into()),
+    ])
+    .with_status(Status::Success)
+}
+
 pub fn add_callback(path: &Path) {
-    println!(
-        "{} {}",
-        "+".green().bold(),
-        path.to_str().unwrap_or_default().green()
-    );
+    println!("{}", file_added(path));
 }
 
 pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
@@ -43,7 +53,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     index.write()?;
 
     if count > 0 {
-        println!("{} file(s) added", count.to_string().bold());
+        println!("{} file(s) added", count);
     }
 
     Ok(())

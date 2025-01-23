@@ -91,7 +91,7 @@ fn main() {
                     Some(branch) => {
                         cmd::checkout::run(repo, cmd::checkout::Opts::with_branch(branch))
                     }
-                    None => cmd::status::run(repo),
+                    None => cmd::status::run(repo, cmd::status::Opts::default()),
                 },
             }
         }

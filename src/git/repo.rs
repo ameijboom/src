@@ -80,7 +80,7 @@ pub struct DiffOpts<'a> {
     diff_opts: DiffOptions,
 }
 
-impl<'a> Default for DiffOpts<'a> {
+impl Default for DiffOpts<'_> {
     fn default() -> Self {
         let mut opts = DiffOptions::new();
         opts.force_text(true)

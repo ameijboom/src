@@ -4,7 +4,13 @@ use clap::Parser;
 use colored::Colorize;
 use git2::{build::RepoBuilder, FetchOptions};
 
-use crate::{git::RemoteOpts, term::bar::Bar};
+use crate::{
+    git::RemoteOpts,
+    term::{
+        bar::Bar,
+        ui::{self, Icon},
+    },
+};
 
 #[derive(Parser, Default)]
 #[clap(about = "Clone a repository")]
@@ -56,6 +62,12 @@ pub fn run(opts: Opts) -> Result<(), Box<dyn Error>> {
 
     remote.into_reply();
 
-    println!("✓ Repository cloned to {}", path.display());
+    println!(
+        "{}",
+        ui::message_with_icon(
+            Icon::Check,
+            format!("Repository cloned to {}", path.display())
+        )
+    );
     Ok(())
 }

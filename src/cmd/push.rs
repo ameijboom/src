@@ -6,7 +6,10 @@ use git2::ErrorCode;
 
 use crate::{
     git::{Branch, Config, RemoteOpts, Repo},
-    term::{bar::Bar, render},
+    term::{
+        bar::Bar,
+        ui::{self, Attribute, Icon, Node},
+    },
 };
 
 #[derive(Parser)]
@@ -54,9 +57,14 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let bar = Bar::default();
 
     bar.writeln(format!(
-        "Pushing to: {} / {}",
-        render::remote(remote_name),
-        render::branch(branch.name()?),
+        "{}",
+        Node::Block(vec![
+            Node::Text("Pushing to: ".into()),
+            Node::Breadcrumb(vec![
+                Node::Attribute(Attribute::Remote(remote_name.to_string().into())),
+                Node::Attribute(Attribute::Branch(branch.name()?.to_string().into()))
+            ])
+        ])
     ));
 
     let reply = remote.push(
@@ -68,7 +76,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         },
     )?;
 
-    println!("✓ done");
+    println!("{}", ui::message_with_icon(Icon::Check, "done"));
 
     if let Ok(msg) = std::str::from_utf8(&reply.stdout)
         .map(|s| s.trim_matches(|c: char| c.is_whitespace() || c == '\0'))

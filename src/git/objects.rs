@@ -3,7 +3,7 @@ use std::str::Utf8Error;
 use chrono::{DateTime, Local};
 use git2::Signature;
 
-use crate::term::fmt::FmtString;
+use crate::term::ui::Node;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -108,12 +108,19 @@ impl<'a> Commit<'a> {
         super::parse_local_time(self.0.time())
     }
 
-    pub fn headers_formatted(&self) -> FmtString {
-        FmtString::new(format!(
-            "Date: {}\nAuthor: {}",
-            self.time().format("%Y-%m-%d %H:%M"),
-            self.author()
-        ))
+    pub fn headers_ui(&self) -> Node {
+        Node::MultiLine(vec![
+            Node::Column(
+                Box::new(Node::Text("Date".into())),
+                Box::new(Node::Text(
+                    self.time().format("%Y-%m-%d %H:%M").to_string().into(),
+                )),
+            ),
+            Node::Column(
+                Box::new(Node::Text("Author".into())),
+                Box::new(Node::Text(self.author().to_string().into())),
+            ),
+        ])
     }
 
     pub fn message(&self) -> Result<&str, Utf8Error> {
