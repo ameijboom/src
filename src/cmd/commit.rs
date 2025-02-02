@@ -93,7 +93,11 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         children = vec![label!(Node::Block(children)), spacer!()];
     }
 
-    ui.renderln(&continued!(Node::Block(children)))?;
+    ui.renderln(&continued!(block!(
+        text!("Created"),
+        spacer!(),
+        Node::Block(children)
+    )))?;
 
     Ok(())
 }
