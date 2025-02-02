@@ -8,7 +8,8 @@ use crate::{
     git::{Branch, Config, RemoteOpts, Repo},
     term::{
         bar::Bar,
-        ui::{self, Attribute, Icon, Node},
+        node::{self, Attribute, Icon, Node},
+        render::{Render, TermRenderer},
     },
 };
 
@@ -54,18 +55,16 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let target = branch.upstream()?.target()?;
     let remote_name = upstream.remote_name()?;
     let mut remote = repo.find_remote(remote_name)?;
+    let mut ui = TermRenderer::default();
     let bar = Bar::default();
 
-    bar.writeln(format!(
-        "{}",
-        Node::Block(vec![
-            Node::Text("Pushing to: ".into()),
-            Node::Breadcrumb(vec![
-                Node::Attribute(Attribute::Remote(remote_name.to_string().into())),
-                Node::Attribute(Attribute::Branch(branch.name()?.to_string().into()))
-            ])
-        ])
-    ));
+    ui.renderln(&Node::Block(vec![
+        Node::Text("Pushing to: ".into()),
+        Node::Breadcrumb(vec![
+            Node::Attribute(Attribute::Remote(remote_name.to_string().into())),
+            Node::Attribute(Attribute::Branch(branch.name()?.to_string().into())),
+        ]),
+    ]))?;
 
     let reply = remote.push(
         RemoteOpts::with_bar(bar).with_compare(target),
@@ -76,7 +75,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         },
     )?;
 
-    println!("{}", ui::message_with_icon(Icon::Check, "done"));
+    ui.renderln(&node::message_with_icon(Icon::Check, "done"))?;
 
     if let Ok(msg) = std::str::from_utf8(&reply.stdout)
         .map(|s| s.trim_matches(|c: char| c.is_whitespace() || c == '\0'))

@@ -8,7 +8,8 @@ use crate::{
     git::Repo,
     term::{
         self,
-        ui::{Attribute, Node, Stream},
+        node::{Attribute, Node},
+        render::{Render, TermRenderer},
     },
 };
 
@@ -33,7 +34,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         index.write()?;
     }
 
-    let mut stream = Stream::default();
+    let mut ui = TermRenderer::default();
     let oid = index.write_tree()?;
     let mut head = repo.head()?;
     let tree = repo.find_tree(oid)?;
@@ -41,11 +42,11 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         let commit = head.find_commit()?;
 
         if !opts.yes {
-            stream.send(Node::MultiLine(vec![
+            ui.renderln(&Node::MultiLine(vec![
                 Node::Dimmed(Box::new(commit.headers_ui())),
                 Node::spacer(),
                 Node::Text(commit.message_formatted().into()),
-            ]));
+            ]))?;
 
             let mut config = RenderConfig::default_colored();
             config.prompt.fg = Some(Color::LightCyan);
@@ -67,11 +68,11 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
 
     head.set_target(oid, &format!("commit amended: {message}"))?;
 
-    stream.send(Node::Continued(Box::new(Node::Block(vec![
+    ui.renderln(&Node::Continued(Box::new(Node::Block(vec![
         Node::Text("Created".into()),
         Node::spacer(),
         Node::Attribute(Attribute::CommitShort(oid)),
-    ]))));
+    ]))))?;
 
     Ok(())
 }

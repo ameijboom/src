@@ -4,7 +4,10 @@ use clap::Parser;
 
 use crate::{
     git::Repo,
-    term::ui::{self, Icon},
+    term::{
+        node::{self, Icon},
+        render::{Render, TermRenderer},
+    },
 };
 
 #[derive(Parser)]
@@ -22,7 +25,8 @@ pub fn run(mut repo: Repo, _opts: Opts) -> Result<(), Box<dyn Error>> {
 
     repo.save_stash(&message)?;
 
-    println!("{}", ui::message_with_icon(Icon::Check, "Changes stashed"));
+    let mut ui = TermRenderer::default();
+    ui.render(&node::message_with_icon(Icon::Check, "Changes stashed"))?;
 
     Ok(())
 }

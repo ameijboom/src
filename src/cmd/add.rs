@@ -5,8 +5,9 @@ use clap::{Parser, ValueHint};
 use crate::{
     git::Repo,
     term::{
+        node::{Indicator, Node, Status},
+        render::{Render, TermRenderer},
         select,
-        ui::{Indicator, Node, Status},
     },
 };
 
@@ -27,7 +28,7 @@ fn file_added(path: &Path) -> Node {
 }
 
 pub fn add_callback(path: &Path) {
-    println!("{}", file_added(path));
+    let _ = TermRenderer::default().renderln(&file_added(path));
 }
 
 pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {

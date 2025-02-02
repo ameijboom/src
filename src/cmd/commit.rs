@@ -5,7 +5,10 @@ use clap::Parser;
 use crate::{
     cmd::add::add_callback,
     git::{DiffOpts, Repo},
-    term::ui::{Indicator, Node, Status},
+    term::{
+        node::{Indicator, Node, Status},
+        render::{Render, TermRenderer},
+    },
 };
 
 #[derive(Parser)]
@@ -58,6 +61,8 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
 
     let diff = repo.diff(DiffOpts::default().with_all(&old_tree))?;
     let stats = diff.stats()?;
+
+    let mut ui = TermRenderer::default();
     let mut children = vec![];
 
     if stats.insertions() > 0 {
@@ -71,6 +76,10 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     }
 
     if stats.deletions() > 0 {
+        if !children.is_empty() {
+            children.push(Node::spacer());
+        }
+
         children.push(
             Node::Block(vec![
                 Node::Indicator(Indicator::Deleted),
@@ -84,7 +93,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         children = vec![Node::Label(Box::new(Node::Block(children))), Node::spacer()];
     }
 
-    println!("{}", Node::Continued(Box::new(Node::Block(children))));
+    ui.renderln(&Node::Continued(Box::new(Node::Block(children))))?;
 
     Ok(())
 }

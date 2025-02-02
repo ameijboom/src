@@ -1,5 +1,4 @@
-use std::error::Error;
-use std::fmt::Write;
+use std::{error::Error, fmt};
 
 use clap::Parser;
 use git2::{ErrorCode, RepositoryState};
@@ -7,7 +6,10 @@ use minus::Pager;
 
 use crate::{
     git::{Change, EntryStatus, Repo},
-    term::ui::{Attribute, Builder, Icon, Indicator, Node, Status},
+    term::{
+        node::{Attribute, Icon, Indicator, Node, Status},
+        render::{Render, TermRenderer},
+    },
 };
 
 #[derive(Parser, Default)]
@@ -18,13 +20,13 @@ pub struct Opts {
 }
 
 fn render_branch(
+    ui: &mut impl Render,
     repo: &Repo,
     state: Option<(git2::Oid, git2::Oid)>,
-) -> Result<Node, Box<dyn Error>> {
-    let mut group = vec![];
-
+) -> Result<(), Box<dyn Error>> {
     match repo.head() {
         Ok(head) => {
+            let mut group = vec![];
             let commit = head.find_commit()?;
 
             group.push(Node::Attribute(Attribute::from_ref(&head)?));
@@ -46,14 +48,16 @@ fn render_branch(
                     .to_string(),
                 75,
             ));
+
+            ui.renderln(&Node::Block(group))?;
+            Ok(())
         }
         Err(e) if e.code() == ErrorCode::UnbornBranch => {
-            group.push(Node::Attribute(Attribute::Branch("[no branch]".into())));
+            ui.renderln(&Node::Attribute(Attribute::Branch("[no branch]".into())))?;
+            Ok(())
         }
-        Err(e) => return Err(e.into()),
-    };
-
-    Ok(Node::Block(group))
+        Err(e) => Err(e.into()),
+    }
 }
 
 fn remote_state_indicators(
@@ -89,29 +93,30 @@ fn remote_state_indicators(
     })
 }
 
-fn render_state(repo: &Repo) -> Result<Option<Node>, Box<dyn Error>> {
-    Ok(match repo.state() {
-        RepositoryState::Merge => Some(Node::Text("In merge".into())),
+fn render_state(ui: &mut impl Render, repo: &Repo) -> Result<(), fmt::Error> {
+    match repo.state() {
+        RepositoryState::Merge => ui.renderln(&Node::Text("In merge".into())),
         RepositoryState::Revert | RepositoryState::RevertSequence => {
-            Some(Node::Text("In revert".into()))
+            ui.renderln(&Node::Text("In revert".into()))
         }
         RepositoryState::CherryPick | RepositoryState::CherryPickSequence => {
-            Some(Node::Text("In cherrypick".into()))
+            ui.renderln(&Node::Text("In cherrypick".into()))
         }
         RepositoryState::Bisect => todo!(),
         // See: https://github.com/libgit2/libgit2/issues/6332
         RepositoryState::Rebase
         | RepositoryState::RebaseInteractive
-        | RepositoryState::RebaseMerge => Some(Node::Text("In rebase".into())),
-        _ => None,
-    })
+        | RepositoryState::RebaseMerge => ui.renderln(&Node::Text("In rebase".into())),
+        _ => Ok(()),
+    }
 }
 
 fn render_commits(
+    ui: &mut impl Render,
     repo: &Repo,
     local: git2::Oid,
     remote: git2::Oid,
-) -> Result<Node, Box<dyn Error>> {
+) -> Result<(), Box<dyn Error>> {
     let mut children = vec![];
     let (ahead, behind) = repo.commits_ahead_behind(local, remote)?;
     let groups = [
@@ -150,10 +155,14 @@ fn render_commits(
         ));
     }
 
-    Ok(Node::MultiLine(children))
+    if children.is_empty() {
+        return Ok(());
+    }
+
+    Ok(ui.renderln(&Node::MultiLine(children))?)
 }
 
-fn render_changes(repo: &Repo) -> Result<Node, Box<dyn Error>> {
+fn render_changes(ui: &mut impl Render, repo: &Repo) -> Result<(), Box<dyn Error>> {
     let mut children = vec![];
     let status = repo.status()?;
     let entries = status.entries().collect::<Vec<_>>();
@@ -198,7 +207,11 @@ fn render_changes(repo: &Repo) -> Result<Node, Box<dyn Error>> {
         ));
     }
 
-    Ok(Node::MultiLine(children))
+    if children.is_empty() {
+        return Ok(());
+    }
+
+    Ok(ui.render(&Node::MultiLine(children))?)
 }
 
 fn find_state(repo: &Repo) -> Result<Option<(git2::Oid, git2::Oid)>, Box<dyn Error>> {
@@ -215,33 +228,30 @@ fn find_state(repo: &Repo) -> Result<Option<(git2::Oid, git2::Oid)>, Box<dyn Err
     Ok(Some((local, remote)))
 }
 
-fn render(repo: Repo) -> Result<Node, Box<dyn Error>> {
+fn render(mut ui: impl Render, repo: Repo) -> Result<(), Box<dyn Error>> {
     let state = find_state(&repo)?;
 
-    Ok(Builder::default()
-        .and(render_branch(&repo, state)?)
-        .and(render_state(&repo)?)
-        .and(render_changes(&repo)?)
-        .and(
-            state
-                .map(|(local, remote)| render_commits(&repo, local, remote))
-                .transpose()?,
-        )
-        .build())
+    render_branch(&mut ui, &repo, state)?;
+    render_state(&mut ui, &repo)?;
+    render_changes(&mut ui, &repo)?;
+
+    state
+        .map(|(local, remote)| render_commits(&mut ui, &repo, local, remote))
+        .transpose()?;
+
+    Ok(())
 }
 
 pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
-    let node = render(repo)?;
-
     if opts.no_pager {
-        println!("{node}");
+        render(TermRenderer::default(), repo)
     } else {
         let mut pager = Pager::new();
         pager.set_prompt("status, q to quit")?;
 
-        writeln!(&mut pager, "{node}")?;
+        render(TermRenderer::new(&mut pager), repo)?;
         minus::page_all(pager)?;
-    }
 
-    Ok(())
+        Ok(())
+    }
 }

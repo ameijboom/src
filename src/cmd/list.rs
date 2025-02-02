@@ -1,15 +1,14 @@
-use std::{
-    error::Error,
-    fmt,
-    io::{self, Write},
-};
+use std::error::Error;
 
 use clap::Parser;
 use minus::Pager;
 
 use crate::{
     git::{Commit, Repo},
-    term::ui::{Attribute, Icon, Node, Status},
+    term::{
+        node::{Attribute, Icon, Node, Status},
+        render::{Render, TermRenderer},
+    },
 };
 
 #[derive(Parser)]
@@ -54,106 +53,92 @@ impl Cmd {
     }
 }
 
-struct WrapFmt<T: Write>(T);
-
-impl<T: Write> fmt::Write for WrapFmt<T> {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        self.0.write_all(s.as_bytes()).map_err(|_| fmt::Error)
-    }
-}
-
-fn list_remotes(repo: &mut Repo, mut stdout: impl fmt::Write) -> Result<(), Box<dyn Error>> {
+fn list_remotes(ui: &mut impl Render, repo: &mut Repo) -> Result<(), Box<dyn Error>> {
     for remote in repo.remotes()? {
         let remote = remote?;
-        writeln!(
-            stdout,
-            "{}\t{}",
-            remote
-                .name()?
-                .map(|name| Node::Attribute(Attribute::Remote(name.to_string().into())).to_string())
-                .unwrap_or_else(|| "<none>".to_string()),
-            remote.url()?
-        )?;
+        ui.renderln(&Node::Column(
+            Box::new(Node::Text(remote.url()?.to_string().into())),
+            Box::new(
+                remote
+                    .name()?
+                    .map(|name| Node::Attribute(Attribute::Remote(name.to_string().into())))
+                    .unwrap_or_else(|| Node::Text("<none>".into())),
+            ),
+        ))?;
     }
 
     Ok(())
 }
 
 fn list_commits<'a>(
+    ui: &mut impl Render,
     walk: impl Iterator<Item = Result<Commit<'a>, git2::Error>>,
     short: bool,
-    mut stdout: impl fmt::Write,
 ) -> Result<(), Box<dyn Error>> {
     for commit in walk {
         let commit = commit?;
-        let mut line = vec![];
 
         if commit.is_signed() {
-            line.push(Node::Block(vec![
+            ui.render(&Node::Block(vec![
                 Node::Icon(Icon::Lock).with_status(Status::Success),
                 Node::spacer(),
-            ]));
+            ]))?;
         } else if short {
-            line.push(Node::spacer());
+            ui.render(&Node::spacer())?;
         }
 
-        line.push(Node::Attribute(Attribute::Commit(commit.id())));
+        ui.render(&Node::Attribute(Attribute::Commit(commit.id())))?;
 
         let message = commit.message().unwrap_or_default().trim();
 
         if short {
-            line.push(Node::text_head_1(message));
-            writeln!(stdout, "{}", Node::Block(line))?;
+            ui.renderln(&Node::text_head_1(message))?;
         } else {
-            let node = Node::MultiLine(vec![
-                Node::Block(line),
+            ui.renderln(&Node::MultiLine(vec![
+                Node::Empty,
                 Node::Dimmed(Box::new(commit.headers_ui())),
                 Node::spacer(),
                 Node::Text(commit.message_formatted().into()),
-            ]);
-
-            writeln!(stdout, "{node}\n")?;
+                Node::Empty,
+            ]))?;
         }
     }
 
     Ok(())
 }
 
-fn list_branches(repo: Repo, mut stdout: impl fmt::Write) -> Result<(), Box<dyn Error>> {
+fn list_branches(ui: &mut impl Render, repo: Repo) -> Result<(), Box<dyn Error>> {
     for branch in repo.branches()? {
-        let branch = branch?;
-        writeln!(
-            stdout,
-            "{}",
-            Node::Attribute(Attribute::Branch(branch.name()?.to_string().into()))
-        )?;
+        ui.renderln(&Node::Attribute(Attribute::Branch(
+            branch?.name()?.to_string().into(),
+        )))?;
     }
 
     Ok(())
 }
 
-fn render(mut repo: Repo, stdout: impl fmt::Write, opts: Opts) -> Result<(), Box<dyn Error>> {
+fn render(mut ui: impl Render, mut repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     match opts.cmd {
         Some(cmd) => match cmd {
-            Cmd::Branch => list_branches(repo, stdout),
-            Cmd::Remote => list_remotes(&mut repo, stdout),
-            Cmd::Stash => list_commits(repo.stashes()?, opts.short, stdout),
+            Cmd::Branch => list_branches(&mut ui, repo),
+            Cmd::Remote => list_remotes(&mut ui, &mut repo),
+            Cmd::Stash => list_commits(&mut ui, repo.stashes()?, opts.short),
             Cmd::Commit { target } => {
                 let target = match target {
                     Some(target) => repo.find_branch(&target).map(|b| b.into_ref()),
                     None => repo.head(),
                 }?;
 
-                list_commits(repo.commits(&target)?, opts.short, stdout)
+                list_commits(&mut ui, repo.commits(&target)?, opts.short)
             }
         },
-        None => list_commits(repo.commits(&repo.head()?)?, opts.short, stdout),
+        None => list_commits(&mut ui, repo.commits(&repo.head()?)?, opts.short),
     }
 }
 
 pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     if opts.no_pager {
-        render(repo, WrapFmt(io::stdout()), opts)
+        render(TermRenderer::default(), repo, opts)
     } else {
         colored::control::set_override(true);
 
@@ -161,7 +146,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         let mut pager = Pager::new();
         pager.set_prompt(format!("list {cmd}s, q to quit"))?;
 
-        render(repo, &mut pager, opts)?;
+        render(TermRenderer::new(&mut pager), repo, opts)?;
         minus::page_all(pager)?;
 
         Ok(())

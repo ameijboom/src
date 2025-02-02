@@ -3,7 +3,7 @@ use std::str::Utf8Error;
 use chrono::{DateTime, Local};
 use git2::Signature;
 
-use crate::term::ui::Node;
+use crate::term::node::Node;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

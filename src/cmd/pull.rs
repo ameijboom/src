@@ -4,7 +4,10 @@ use clap::Parser;
 
 use crate::{
     git::{RemoteOpts, Repo},
-    term::ui::{self, Icon},
+    term::{
+        node::{self, Icon},
+        render::{Render, TermRenderer},
+    },
 };
 
 #[derive(Parser, Default)]
@@ -38,8 +41,8 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         let (analysis, _) = repo.merge_analysis(&upstream)?;
 
         if analysis.is_up_to_date() {
-            println!("{}", ui::message_with_icon(Icon::Check, "up to date"));
-            return Ok(());
+            let mut ui = TermRenderer::default();
+            return Ok(ui.render(&node::message_with_icon(Icon::Check, "up to date"))?);
         } else if analysis.is_fast_forward() {
             let target = head.set_target(oid, "fast-forward")?;
             repo.checkout_tree(&target.find_tree()?, true)?;

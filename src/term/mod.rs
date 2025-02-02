@@ -1,8 +1,9 @@
 use inquire::{error::InquireResult, ui::RenderConfig, Confirm};
 
 pub mod bar;
+pub mod node;
+pub mod render;
 pub mod select;
-pub mod ui;
 
 pub fn confirm(prompt: &str) -> InquireResult<bool> {
     let mut config = RenderConfig::default_colored();
