@@ -56,12 +56,12 @@ impl Cmd {
 fn list_remotes(ui: &mut impl Render, repo: &mut Repo) -> Result<(), Box<dyn Error>> {
     for remote in repo.remotes()? {
         let remote = remote?;
-        ui.renderln(&node::column!(
-            text!(remote.url()?.to_string()),
+        ui.renderln(&breadcrumb!(
             remote
                 .name()?
                 .map(|name| Node::Attribute(Attribute::Remote(name.to_string().into())))
-                .unwrap_or_else(|| text!("<none>"))
+                .unwrap_or_else(|| text!("<none>")),
+            text!(remote.url()?.to_string())
         ))?;
     }
 
