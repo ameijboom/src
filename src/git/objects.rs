@@ -3,7 +3,7 @@ use std::str::Utf8Error;
 use chrono::{DateTime, Local};
 use git2::Signature;
 
-use crate::term::node::Node;
+use crate::term::node::{self, prelude::*};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -109,18 +109,13 @@ impl<'a> Commit<'a> {
     }
 
     pub fn headers_ui(&self) -> Node {
-        Node::MultiLine(vec![
-            Node::Column(
-                Box::new(Node::Text("Date".into())),
-                Box::new(Node::Text(
-                    self.time().format("%Y-%m-%d %H:%M").to_string().into(),
-                )),
+        multi_line!(
+            node::column!(
+                text!("Date"),
+                text!(self.time().format("%Y-%m-%d %H:%M").to_string())
             ),
-            Node::Column(
-                Box::new(Node::Text("Author".into())),
-                Box::new(Node::Text(self.author().to_string().into())),
-            ),
-        ])
+            node::column!(text!("Author"), text!(self.author().to_string()))
+        )
     }
 
     pub fn message(&self) -> Result<&str, Utf8Error> {

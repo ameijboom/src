@@ -7,7 +7,7 @@ use minus::Pager;
 use crate::{
     git::{Change, EntryStatus, Repo},
     term::{
-        node::{Attribute, Icon, Indicator, Node, Status},
+        node::prelude::*,
         render::{Render, TermRenderer},
     },
 };
@@ -30,13 +30,13 @@ fn render_branch(
             let commit = head.find_commit()?;
 
             group.push(Node::Attribute(Attribute::from_ref(&head)?));
-            group.push(Node::spacer());
+            group.push(spacer!());
 
             if let Some(indicators) =
                 state.and_then(|state| remote_state_indicators(repo, state).ok().flatten())
             {
-                group.push(Node::Label(Box::new(indicators)));
-                group.push(Node::spacer());
+                group.push(label!(indicators));
+                group.push(spacer!());
             };
 
             group.push(Node::text_capped(
@@ -70,43 +70,43 @@ fn remote_state_indicators(
     Ok(if ahead == 0 && behind == 0 {
         None
     } else if ahead == 0 && behind != 0 {
-        Some(Node::Block(vec![
-            Node::Icon(Icon::ArrowDown).with_status(Status::Error),
-            Node::spacer(),
-            Node::Text(behind.to_string().into()),
-        ]))
+        Some(block!(
+            icon!(ArrowDown).with_status(Status::Error),
+            spacer!(),
+            text!(behind.to_string())
+        ))
     } else if behind == 0 && ahead != 0 {
-        Some(Node::Block(vec![
-            Node::Icon(Icon::ArrowUp).with_status(Status::Success),
-            Node::spacer(),
-            Node::Text(ahead.to_string().into()),
-        ]))
+        Some(block!(
+            icon!(ArrowUp).with_status(Status::Success),
+            spacer!(),
+            text!(ahead.to_string())
+        ))
     } else {
-        Some(Node::Block(vec![
-            Node::Icon(Icon::ArrowUp).with_status(Status::Success),
-            Node::spacer(),
-            Node::Text(ahead.to_string().into()),
-            Node::spacer(),
-            Node::Icon(Icon::ArrowDown).with_status(Status::Error),
-            Node::Text(behind.to_string().into()),
-        ]))
+        Some(block!(
+            icon!(ArrowUp).with_status(Status::Success),
+            spacer!(),
+            text!(ahead.to_string()),
+            spacer!(),
+            icon!(ArrowDown).with_status(Status::Error),
+            text!(behind.to_string())
+        ))
     })
 }
 
 fn render_state(ui: &mut impl Render, repo: &Repo) -> Result<(), fmt::Error> {
     match repo.state() {
-        RepositoryState::Merge => ui.renderln(&Node::Text("In merge".into())),
+        RepositoryState::Merge => ui.renderln(&text!("In merge")),
         RepositoryState::Revert | RepositoryState::RevertSequence => {
-            ui.renderln(&Node::Text("In revert".into()))
+            ui.renderln(&text!("In revert"))
         }
         RepositoryState::CherryPick | RepositoryState::CherryPickSequence => {
-            ui.renderln(&Node::Text("In cherrypick".into()))
+            ui.renderln(&text!("In cherrypick"))
         }
         RepositoryState::Bisect => todo!(),
         // See: https://github.com/libgit2/libgit2/issues/6332
         RepositoryState::Rebase
         | RepositoryState::RebaseInteractive
-        | RepositoryState::RebaseMerge => ui.renderln(&Node::Text("In rebase".into())),
+        | RepositoryState::RebaseMerge => ui.renderln(&text!("In rebase")),
         _ => Ok(()),
     }
 }
@@ -135,17 +135,17 @@ fn render_commits(
         for commit in commits {
             let id = commit.id().to_string();
 
-            lines.push(Node::Block(vec![
+            lines.push(block!(
                 if commit.is_signed() {
-                    Node::Icon(Icon::Lock).with_status(Status::Success)
+                    icon!(Lock).with_status(Status::Success)
                 } else {
-                    Node::spacer()
+                    spacer!()
                 },
-                Node::spacer(),
-                Node::Dimmed(Box::new(Node::Text(id[..6].to_string().into()))),
-                Node::spacer(),
-                Node::text_head_1(commit.message().unwrap_or_default()),
-            ]));
+                spacer!(),
+                dimmed!(text!(id[..6].to_string())),
+                spacer!(),
+                Node::text_head_1(commit.message().unwrap_or_default())
+            ));
         }
 
         children.push(Node::Group(
@@ -191,13 +191,13 @@ fn render_changes(ui: &mut impl Render, repo: &Repo) -> Result<(), Box<dyn Error
                 None | Some(Change::Type) => Indicator::Unknown,
             };
 
-            lines.push(Node::Block(vec![
-                Node::spacer(),
-                Node::spacer(),
+            lines.push(block!(
+                spacer!(),
+                spacer!(),
                 Node::Indicator(indicator),
-                Node::spacer(),
-                Node::Text(entry.path()?.to_string().into()),
-            ]));
+                spacer!(),
+                text!(entry.path()?.to_string())
+            ));
         }
 
         children.push(Node::Group(

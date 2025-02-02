@@ -8,7 +8,7 @@ use crate::{
     git::{Branch, Config, RemoteOpts, Repo},
     term::{
         bar::Bar,
-        node::{self, Attribute, Icon, Node},
+        node::prelude::*,
         render::{Render, TermRenderer},
     },
 };
@@ -58,13 +58,13 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let mut ui = TermRenderer::default();
     let bar = Bar::default();
 
-    ui.renderln(&Node::Block(vec![
-        Node::Text("Pushing to: ".into()),
-        Node::Breadcrumb(vec![
+    ui.renderln(&block!(
+        text!("Pushing to: "),
+        breadcrumb!(
             Node::Attribute(Attribute::Remote(remote_name.to_string().into())),
-            Node::Attribute(Attribute::Branch(branch.name()?.to_string().into())),
-        ]),
-    ]))?;
+            Node::Attribute(Attribute::Branch(branch.name()?.to_string().into()))
+        )
+    ))?;
 
     let reply = remote.push(
         RemoteOpts::with_bar(bar).with_compare(target),
@@ -75,7 +75,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         },
     )?;
 
-    ui.renderln(&node::message_with_icon(Icon::Check, "done"))?;
+    ui.renderln(&message_with_icon(Icon::Check, "done"))?;
 
     if let Ok(msg) = std::str::from_utf8(&reply.stdout)
         .map(|s| s.trim_matches(|c: char| c.is_whitespace() || c == '\0'))

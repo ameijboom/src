@@ -5,7 +5,7 @@ use clap::Parser;
 use crate::{
     git::Repo,
     term::{
-        node::{self, Icon},
+        node::prelude::*,
         render::{Render, TermRenderer},
     },
 };
@@ -21,7 +21,7 @@ pub fn run(mut repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     repo.pop_stash(opts.index)?;
 
     let mut term = TermRenderer::default();
-    term.render(&node::message_with_icon(Icon::Check, "Changes applied"))?;
+    term.render(&message_with_icon(Icon::Check, "Changes applied"))?;
 
     Ok(())
 }

@@ -6,7 +6,7 @@ use crate::{
     cmd::add::add_callback,
     git::{DiffOpts, Repo},
     term::{
-        node::{Indicator, Node, Status},
+        node::prelude::*,
         render::{Render, TermRenderer},
     },
 };
@@ -67,33 +67,33 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
 
     if stats.insertions() > 0 {
         children.push(
-            Node::Block(vec![
+            block!(
                 Node::Indicator(Indicator::New),
-                Node::Text(stats.insertions().to_string().into()),
-            ])
+                text!(stats.insertions().to_string())
+            )
             .with_status(Status::Success),
         );
     }
 
     if stats.deletions() > 0 {
         if !children.is_empty() {
-            children.push(Node::spacer());
+            children.push(spacer!());
         }
 
         children.push(
-            Node::Block(vec![
+            block!(
                 Node::Indicator(Indicator::Deleted),
-                Node::Text(stats.deletions().to_string().into()),
-            ])
+                text!(stats.deletions().to_string())
+            )
             .with_status(Status::Error),
         );
     }
 
     if !children.is_empty() {
-        children = vec![Node::Label(Box::new(Node::Block(children))), Node::spacer()];
+        children = vec![label!(Node::Block(children)), spacer!()];
     }
 
-    ui.renderln(&Node::Continued(Box::new(Node::Block(children))))?;
+    ui.renderln(&continued!(Node::Block(children)))?;
 
     Ok(())
 }

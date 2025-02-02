@@ -5,7 +5,7 @@ use clap::{Parser, ValueHint};
 use crate::{
     git::Repo,
     term::{
-        node::{Indicator, Node, Status},
+        node::prelude::*,
         render::{Render, TermRenderer},
         select,
     },
@@ -19,11 +19,11 @@ pub struct Opts {
 }
 
 fn file_added(path: &Path) -> Node {
-    Node::Block(vec![
+    block!(
         Node::Indicator(Indicator::New),
-        Node::spacer(),
-        Node::Text(path.to_str().unwrap_or_default().to_string().into()),
-    ])
+        spacer!(),
+        text!(path.to_str().unwrap_or_default().to_string())
+    )
     .with_status(Status::Success)
 }
 

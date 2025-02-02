@@ -6,7 +6,7 @@ use minus::Pager;
 use crate::{
     git::{Commit, Repo},
     term::{
-        node::{Attribute, Icon, Node, Status},
+        node::{self, prelude::*},
         render::{Render, TermRenderer},
     },
 };
@@ -56,14 +56,12 @@ impl Cmd {
 fn list_remotes(ui: &mut impl Render, repo: &mut Repo) -> Result<(), Box<dyn Error>> {
     for remote in repo.remotes()? {
         let remote = remote?;
-        ui.renderln(&Node::Column(
-            Box::new(Node::Text(remote.url()?.to_string().into())),
-            Box::new(
-                remote
-                    .name()?
-                    .map(|name| Node::Attribute(Attribute::Remote(name.to_string().into())))
-                    .unwrap_or_else(|| Node::Text("<none>".into())),
-            ),
+        ui.renderln(&node::column!(
+            text!(remote.url()?.to_string()),
+            remote
+                .name()?
+                .map(|name| Node::Attribute(Attribute::Remote(name.to_string().into())))
+                .unwrap_or_else(|| text!("<none>"))
         ))?;
     }
 
@@ -79,12 +77,9 @@ fn list_commits<'a>(
         let commit = commit?;
 
         if commit.is_signed() {
-            ui.render(&Node::Block(vec![
-                Node::Icon(Icon::Lock).with_status(Status::Success),
-                Node::spacer(),
-            ]))?;
+            ui.render(&block!(icon!(Lock).with_status(Status::Success), spacer!()))?;
         } else if short {
-            ui.render(&Node::spacer())?;
+            ui.render(&spacer!())?;
         }
 
         ui.render(&Node::Attribute(Attribute::Commit(commit.id())))?;
@@ -94,13 +89,13 @@ fn list_commits<'a>(
         if short {
             ui.renderln(&Node::text_head_1(message))?;
         } else {
-            ui.renderln(&Node::MultiLine(vec![
+            ui.renderln(&multi_line!(
                 Node::Empty,
-                Node::Dimmed(Box::new(commit.headers_ui())),
-                Node::spacer(),
-                Node::Text(commit.message_formatted().into()),
-                Node::Empty,
-            ]))?;
+                dimmed!(commit.headers_ui()),
+                spacer!(),
+                text!(commit.message_formatted()),
+                Node::Empty
+            ))?;
         }
     }
 

@@ -8,7 +8,7 @@ use crate::{
     git::RemoteOpts,
     term::{
         bar::Bar,
-        node::{self, Icon},
+        node::prelude::*,
         render::{Render, TermRenderer},
     },
 };
@@ -64,7 +64,7 @@ pub fn run(opts: Opts) -> Result<(), Box<dyn Error>> {
     remote.into_reply();
 
     let mut ui = TermRenderer::default();
-    ui.renderln(&node::message_with_icon(
+    ui.renderln(&message_with_icon(
         Icon::Check,
         format!("Repository cloned to {}", path.display()),
     ))?;

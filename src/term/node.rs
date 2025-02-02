@@ -2,6 +2,84 @@ use std::{borrow::Cow, error::Error};
 
 use crate::git::{Optional, Ref};
 
+macro_rules! dimmed {
+    ($content: expr) => {
+        Node::Dimmed(Box::new($content))
+    };
+}
+
+macro_rules! column {
+    ($left: expr, $right: expr) => {
+        Node::Column(Box::new($left), Box::new($right))
+    };
+}
+
+macro_rules! text {
+    ($text: expr) => {
+        Node::Text($text.into())
+    };
+}
+
+macro_rules! icon {
+    ($name: ident) => {
+        Node::Icon(Icon::$name)
+    };
+}
+
+macro_rules! block {
+    ($($content: expr),+) => {
+        Node::Block(vec![$($content),+])
+    };
+}
+
+macro_rules! breadcrumb {
+    ($($content: expr),+) => {
+        Node::Breadcrumb(vec![$($content),+])
+    };
+}
+
+macro_rules! multi_line {
+    ($($content: expr),+) => {
+        Node::MultiLine(vec![$($content),+])
+    };
+}
+
+macro_rules! label {
+    ($content: expr) => {
+        Node::Label(Box::new($content))
+    };
+}
+
+macro_rules! continued {
+    ($content: expr) => {
+        Node::Continued(Box::new($content))
+    };
+}
+
+macro_rules! spacer {
+    () => {
+        Node::spacer()
+    };
+}
+
+pub(crate) use block;
+pub(crate) use breadcrumb;
+pub(crate) use column;
+pub(crate) use continued;
+pub(crate) use dimmed;
+pub(crate) use icon;
+pub(crate) use label;
+pub(crate) use multi_line;
+pub(crate) use spacer;
+pub(crate) use text;
+
+pub mod prelude {
+    pub(crate) use super::{
+        block, breadcrumb, continued, dimmed, icon, label, multi_line, spacer, text,
+    };
+    pub use super::{message_with_icon, Attribute, Icon, Indicator, Node, Status};
+}
+
 pub fn message_with_icon(icon: Icon, message: impl Into<Cow<'static, str>>) -> Node {
     Node::Block(vec![
         Node::Icon(icon),

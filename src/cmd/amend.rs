@@ -8,7 +8,7 @@ use crate::{
     git::Repo,
     term::{
         self,
-        node::{Attribute, Node},
+        node::prelude::*,
         render::{Render, TermRenderer},
     },
 };
@@ -42,11 +42,11 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         let commit = head.find_commit()?;
 
         if !opts.yes {
-            ui.renderln(&Node::MultiLine(vec![
-                Node::Dimmed(Box::new(commit.headers_ui())),
-                Node::spacer(),
-                Node::Text(commit.message_formatted().into()),
-            ]))?;
+            ui.renderln(&multi_line!(
+                dimmed!(commit.headers_ui()),
+                spacer!(),
+                text!(commit.message_formatted())
+            ))?;
 
             let mut config = RenderConfig::default_colored();
             config.prompt.fg = Some(Color::LightCyan);
@@ -68,11 +68,11 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
 
     head.set_target(oid, &format!("commit amended: {message}"))?;
 
-    ui.renderln(&Node::Continued(Box::new(Node::Block(vec![
-        Node::Text("Created".into()),
-        Node::spacer(),
-        Node::Attribute(Attribute::CommitShort(oid)),
-    ]))))?;
+    ui.renderln(&continued!(block!(
+        text!("Created"),
+        spacer!(),
+        Node::Attribute(Attribute::CommitShort(oid))
+    )))?;
 
     Ok(())
 }
