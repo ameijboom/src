@@ -6,7 +6,7 @@ use minus::Pager;
 use crate::{
     git::{Commit, Repo},
     term::{
-        node::{self, prelude::*},
+        node::prelude::*,
         render::{Render, TermRenderer},
     },
 };

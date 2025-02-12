@@ -215,12 +215,18 @@ fn render_changes(ui: &mut impl Render, repo: &Repo) -> Result<(), Box<dyn Error
 }
 
 fn find_state(repo: &Repo) -> Result<Option<(git2::Oid, git2::Oid)>, Box<dyn Error>> {
-    let head = repo.head()?;
+    let head = match repo.head() {
+        Ok(head) => head,
+        Err(e) if e.code() == ErrorCode::UnbornBranch => return Ok(None),
+        Err(e) => return Err(e.into()),
+    };
+
     let local = head.target()?;
     let upstream = repo
         .find_upstream_branch(&head)?
         .map(|r| r.target())
         .transpose()?;
+
     let Some(remote) = upstream else {
         return Ok(None);
     };
