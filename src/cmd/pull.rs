@@ -42,7 +42,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
 
         if analysis.is_up_to_date() {
             let mut ui = TermRenderer::default();
-            return Ok(ui.render(&message_with_icon(Icon::Check, "up to date"))?);
+            return Ok(ui.renderln(&message_with_icon(Icon::Check, "up to date"))?);
         } else if analysis.is_fast_forward() {
             let target = head.set_target(oid, "fast-forward")?;
             repo.checkout_tree(&target.find_tree()?, true)?;
