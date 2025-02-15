@@ -12,7 +12,7 @@ mod status;
 
 pub use config::Config;
 pub use objects::*;
-pub use remote::RemoteOpts;
+pub use remote::{ProgressEvent, RemoteOpts, SidebandOp};
 pub use repo::{CheckoutError, DiffOpts, Repo};
 pub use resolve::Pattern;
 pub use status::*;

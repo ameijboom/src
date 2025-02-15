@@ -1,15 +1,14 @@
 use std::{env::current_dir, error::Error};
 
 use clap::Parser;
-use colored::Colorize;
 use git2::{build::RepoBuilder, FetchOptions};
 
 use crate::{
     git::RemoteOpts,
     term::{
-        bar::Bar,
         node::prelude::*,
         render::{Render, TermRenderer},
+        setup_progress_bar,
     },
 };
 
@@ -30,17 +29,7 @@ fn convert_uri(uri: &str) -> Option<String> {
 }
 
 pub fn run(opts: Opts) -> Result<(), Box<dyn Error>> {
-    let bar = Bar::with_message("Cloning repository");
-    let (uri, converted) = match convert_uri(&opts.uri) {
-        Some(uri) => (uri, true),
-        None => (opts.uri, false),
-    };
-
-    if converted {
-        bar.writeln(format!("Resolved to: {}", uri).green());
-    }
-
-    let mut remote = RemoteOpts::with_bar(bar);
+    let uri = convert_uri(&opts.uri).unwrap_or(opts.uri);
     let name = uri
         .split('/')
         .last()
@@ -53,6 +42,10 @@ pub fn run(opts: Opts) -> Result<(), Box<dyn Error>> {
         return Err(format!("Directory already exists: {}", path.display()).into());
     }
 
+    let (tx, rx) = std::sync::mpsc::channel();
+    setup_progress_bar(rx);
+
+    let mut remote = RemoteOpts::default().with_progress(tx);
     let mut fetch_opts = FetchOptions::new();
 
     fetch_opts.remote_callbacks(remote.callbacks()).depth(0);

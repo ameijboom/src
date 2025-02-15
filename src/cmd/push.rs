@@ -7,9 +7,9 @@ use git2::ErrorCode;
 use crate::{
     git::{Branch, Config, RemoteOpts, Repo},
     term::{
-        bar::Bar,
         node::prelude::*,
         render::{Render, TermRenderer},
+        setup_progress_bar,
     },
 };
 
@@ -56,7 +56,6 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let remote_name = upstream.remote_name()?;
     let mut remote = repo.find_remote(remote_name)?;
     let mut ui = TermRenderer::default();
-    let bar = Bar::default();
 
     ui.renderln(&block!(
         text!("Pushing to: "),
@@ -66,8 +65,11 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         )
     ))?;
 
+    let (tx, rx) = std::sync::mpsc::channel();
+    setup_progress_bar(rx);
+
     let reply = remote.push(
-        RemoteOpts::with_bar(bar).with_compare(target),
+        RemoteOpts::default().with_progress(tx).with_compare(target),
         &if opts.force {
             format!("+{refname}")
         } else {

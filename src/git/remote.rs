@@ -1,20 +1,14 @@
 use std::{
-    borrow::Cow,
     env,
     error::Error,
     str::{FromStr, Utf8Error},
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
+    sync::mpsc::Sender,
 };
 
 use git2::{Cred, Direction, FetchOptions, Oid, PushOptions, RemoteCallbacks};
 use http::Uri;
 use regex::Regex;
 use ssh2_config::{ParseRule, SshConfig};
-
-use crate::term::bar::Bar;
 
 fn get_credentials(url: &str, username: Option<&str>) -> Result<Cred, git2::Error> {
     let mut username = username.unwrap_or_default().to_string();
@@ -44,59 +38,6 @@ fn get_credentials(url: &str, username: Option<&str>) -> Result<Cred, git2::Erro
     Cred::default()
 }
 
-#[derive(Default)]
-struct Progress {
-    total: AtomicUsize,
-    current: AtomicUsize,
-}
-
-struct State<'a> {
-    bar: &'a mut Bar,
-    pack: Progress,
-    push: Progress,
-    count: Progress,
-    compress: Progress,
-    resolve: Progress,
-}
-
-impl<'a> State<'a> {
-    fn new(bar: &'a mut Bar) -> Self {
-        Self {
-            bar,
-            pack: Progress::default(),
-            push: Progress::default(),
-            count: Progress::default(),
-            compress: Progress::default(),
-            resolve: Progress::default(),
-        }
-    }
-
-    fn progress(&self) -> (usize, usize) {
-        let mut total = 0;
-        let mut current = 0;
-
-        for progress in [
-            &self.pack,
-            &self.push,
-            &self.count,
-            &self.compress,
-            &self.resolve,
-        ] {
-            total += progress.total.load(Ordering::Relaxed);
-            current += progress.current.load(Ordering::Relaxed);
-        }
-
-        (current, total)
-    }
-
-    fn update(&self, message: impl Into<Cow<'static, str>>) {
-        let (current, total) = self.progress();
-
-        self.bar.update(current, total);
-        self.bar.set_message(message.into());
-    }
-}
-
 fn parse_sideband_progress(re: &Regex, line: &[u8]) -> Option<(String, usize, usize)> {
     if let Ok(line) = std::str::from_utf8(line) {
         if let Some(captures) = re.captures(line) {
@@ -122,20 +63,33 @@ pub struct Update {
     pub refname: String,
 }
 
+#[derive(Clone)]
+pub enum SidebandOp {
+    Counting,
+    Compressing,
+    Resolving,
+}
+
+#[derive(Clone)]
+pub enum ProgressEvent {
+    Packing(usize, usize),
+    Transfer(usize, usize),
+    PushTransfer(usize, usize, usize),
+    Sideband(SidebandOp, usize, usize),
+}
+
 #[derive(Default)]
 pub struct RemoteOpts {
-    bar: Bar,
     stdout: Vec<u8>,
     compare: Option<Oid>,
     updates: Vec<Update>,
+    tx: Option<Sender<ProgressEvent>>,
 }
 
 impl RemoteOpts {
-    pub fn with_bar(bar: Bar) -> Self {
-        Self {
-            bar,
-            ..RemoteOpts::default()
-        }
+    pub fn with_progress(mut self, tx: Sender<ProgressEvent>) -> Self {
+        self.tx = Some(tx);
+        self
     }
 
     pub fn with_compare(mut self, compare: Oid) -> Self {
@@ -146,58 +100,8 @@ impl RemoteOpts {
     pub fn callbacks(&mut self) -> RemoteCallbacks<'_> {
         let stdout = &mut self.stdout;
         let mut callbacks = RemoteCallbacks::new();
-        let global_state = Arc::new(State::new(&mut self.bar));
 
         callbacks.credentials(|url, username, _| get_credentials(url, username));
-
-        let state = Arc::clone(&global_state);
-        let re = Regex::new(
-            r"(Counting|Compressing|Resolving) [A-Za-z]+:[ ]+[0-9]+% \(([0-9]+)\/([0-9]+)\)",
-        )
-        .expect("invalid regex");
-
-        callbacks.sideband_progress(move |line| {
-            if let Some((kind, current, total)) = parse_sideband_progress(&re, line) {
-                match kind.as_str() {
-                    "Counting" => {
-                        state.count.current.store(current, Ordering::Relaxed);
-                        state.count.total.store(total, Ordering::Relaxed);
-                    }
-                    "Compressing" => {
-                        state.compress.current.store(current, Ordering::Relaxed);
-                        state.compress.total.store(total, Ordering::Relaxed);
-                    }
-                    "Resolving" => {
-                        state.resolve.current.store(current, Ordering::Relaxed);
-                        state.resolve.total.store(total, Ordering::Relaxed);
-                    }
-                    _ => {}
-                }
-
-                state.update(kind);
-            } else {
-                stdout.extend_from_slice(line);
-            }
-
-            true
-        });
-
-        let state = Arc::clone(&global_state);
-
-        callbacks.pack_progress(move |_stage, current, total| {
-            state.pack.current.store(current, Ordering::Relaxed);
-            state.pack.total.store(total, Ordering::Relaxed);
-            state.update("Packing");
-        });
-
-        let state = Arc::clone(&global_state);
-
-        callbacks.push_transfer_progress(move |current, total, _bytes| {
-            state.push.current.store(current, Ordering::Relaxed);
-            state.push.total.store(total, Ordering::Relaxed);
-            state.update("Pushing");
-        });
-
         callbacks.push_negotiation(|updates| {
             if let Some(oid) = self.compare {
                 if !updates.iter().any(|upd| upd.src() == oid)
@@ -223,6 +127,51 @@ impl RemoteOpts {
 
             true
         });
+
+        // Setup progress callbacks
+        if let Some(tx) = self.tx.take() {
+            let re = Regex::new(
+                r"(Counting|Compressing|Resolving) [A-Za-z]+:[ ]+[0-9]+% \(([0-9]+)\/([0-9]+)\)",
+            )
+            .expect("invalid regex");
+
+            let ctx = tx.clone();
+            callbacks.sideband_progress(move |line| {
+                if let Some((kind, current, total)) = parse_sideband_progress(&re, line) {
+                    let op = match kind.as_str() {
+                        "Counting" => SidebandOp::Counting,
+                        "Compressing" => SidebandOp::Compressing,
+                        "Resolving" => SidebandOp::Resolving,
+                        _ => return true,
+                    };
+
+                    ctx.send(ProgressEvent::Sideband(op, current, total))
+                        .is_ok()
+                } else {
+                    stdout.extend_from_slice(line);
+                    true
+                }
+            });
+
+            let ctx = tx.clone();
+            callbacks.pack_progress(move |_stage, current, total| {
+                let _ = ctx.send(ProgressEvent::Packing(current, total));
+            });
+
+            let ctx = tx.clone();
+            callbacks.push_transfer_progress(move |current, total, bytes| {
+                let _ = ctx.send(ProgressEvent::PushTransfer(bytes, current, total));
+            });
+
+            let ctx = tx.clone();
+            callbacks.transfer_progress(move |progress| {
+                ctx.send(ProgressEvent::Transfer(
+                    progress.indexed_objects(),
+                    progress.total_objects(),
+                ))
+                .is_ok()
+            });
+        }
 
         callbacks
     }
