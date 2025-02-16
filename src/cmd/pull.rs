@@ -7,6 +7,7 @@ use crate::{
     term::{
         node::prelude::*,
         render::{Render, TermRenderer},
+        setup_progress_bar,
     },
 };
 
@@ -33,8 +34,13 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         let upstream = branch.upstream()?;
         let remote = upstream.remote_name()?;
 
+        let (tx, rx) = std::sync::mpsc::channel();
+        let handle = setup_progress_bar(rx);
+
         let mut remote = repo.find_remote(remote)?;
-        remote.fetch(RemoteOpts::default(), branch_name)?;
+        remote.fetch(RemoteOpts::default().with_progress(tx), branch_name)?;
+
+        let _ = handle.join();
 
         let oid = branch.upstream()?.target()?;
         let upstream = repo.find_annotated_commit(oid)?;
