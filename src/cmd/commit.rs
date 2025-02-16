@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use clap::Parser;
+use git2::ErrorCode;
 
 use crate::{
     cmd::add::add_callback,
@@ -45,7 +46,12 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         repo.checkout(&branch.into())?;
     }
 
-    let old_tree = repo.head()?.find_tree()?;
+    let old_tree = match repo.head() {
+        Ok(head) => Some(head.find_tree()?),
+        Err(e) if e.code() == ErrorCode::UnbornBranch => None,
+        Err(e) => return Err(e.into()),
+    };
+
     let mut index = repo.index()?;
 
     if opts.add_all {
@@ -56,10 +62,20 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let tree = repo.find_tree(index.write_tree()?)?;
     let oid = repo.create_commit(&tree, &opts.message, None)?;
 
+    if old_tree.is_none() {
+        repo.create_ref("refs/heads/main", oid)?;
+    }
+
     repo.head()?
         .set_target(oid, &format!("commit: {}", opts.message))?;
 
-    let diff = repo.diff(DiffOpts::default().with_all(&old_tree))?;
+    let mut opts = DiffOpts::default();
+
+    if let Some(tree) = old_tree.as_ref() {
+        opts = opts.with_all(tree);
+    }
+
+    let diff = repo.diff(opts)?;
     let stats = diff.stats()?;
 
     let mut ui = TermRenderer::default();

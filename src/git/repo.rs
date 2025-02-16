@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{borrow::Cow, error::Error};
 
 use git2::{
     build::CheckoutBuilder, string_array::StringArray, BranchType, DiffFindOptions, DiffOptions,
@@ -331,22 +331,26 @@ impl Repo {
     ) -> Result<git2::Oid, Box<dyn Error>> {
         let config = Config::open_default()?;
         let author = config.user.signature()?;
-        let parent = match parent {
-            Some(parent) => &parent.0,
-            None => &self.repo.head()?.peel_to_commit()?,
+        let parent_commit = match parent {
+            Some(parent) => Some(Cow::Borrowed(&parent.0)),
+            None => match self.repo.head() {
+                Ok(head) => Some(Cow::Owned(head.peel_to_commit()?)),
+                Err(e) if e.code() == ErrorCode::UnbornBranch => None,
+                Err(e) => return Err(e.into()),
+            },
         };
+        let parents = parent_commit
+            .as_ref()
+            .map(|c| vec![c.as_ref()])
+            .unwrap_or_default();
 
         if config.commit.gpg_sign {
             match config.gpg.format {
                 Some(super::config::GpgFormat::Ssh) => {
                     let signer = SshSigner::from_config(&config)?;
-                    let buf = self.repo.commit_create_buffer(
-                        &author,
-                        &author,
-                        message,
-                        &tree.0,
-                        &[parent],
-                    )?;
+                    let buf = self
+                        .repo
+                        .commit_create_buffer(&author, &author, message, &tree.0, &parents)?;
                     let signed = signer.sign(&buf)?;
                     let content = std::str::from_utf8(&buf)?;
 
@@ -357,7 +361,7 @@ impl Repo {
         } else {
             Ok(self
                 .repo
-                .commit(None, &author, &author, message, &tree.0, &[parent])?)
+                .commit(None, &author, &author, message, &tree.0, &parents)?)
         }
     }
 
