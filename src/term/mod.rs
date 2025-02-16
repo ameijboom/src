@@ -1,4 +1,8 @@
-use std::{sync::mpsc::Receiver, thread, time::Instant};
+use std::{
+    sync::mpsc::Receiver,
+    thread::{self, JoinHandle},
+    time::Instant,
+};
 
 use inquire::{error::InquireResult, ui::RenderConfig, Confirm};
 use progress::ProgressBar;
@@ -20,7 +24,7 @@ pub fn confirm(prompt: &str) -> InquireResult<bool> {
         .prompt()
 }
 
-pub fn setup_progress_bar(rx: Receiver<ProgressEvent>) {
+pub fn setup_progress_bar(rx: Receiver<ProgressEvent>) -> JoinHandle<()> {
     thread::spawn(move || {
         let mut now = Instant::now();
         let mut bar = ProgressBar::with_multiple(vec!["Remote", "Transfer", "Packing"]);
@@ -64,5 +68,5 @@ pub fn setup_progress_bar(rx: Receiver<ProgressEvent>) {
         }
 
         bar.clear();
-    });
+    })
 }

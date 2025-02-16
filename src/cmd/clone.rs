@@ -43,7 +43,7 @@ pub fn run(opts: Opts) -> Result<(), Box<dyn Error>> {
     }
 
     let (tx, rx) = std::sync::mpsc::channel();
-    setup_progress_bar(rx);
+    let handle = setup_progress_bar(rx);
 
     let mut remote = RemoteOpts::default().with_progress(tx);
     let mut fetch_opts = FetchOptions::new();
@@ -55,6 +55,7 @@ pub fn run(opts: Opts) -> Result<(), Box<dyn Error>> {
         .clone(&uri, &path)?;
 
     remote.into_reply();
+    let _ = handle.join();
 
     let mut ui = TermRenderer::default();
     ui.renderln(&message_with_icon(

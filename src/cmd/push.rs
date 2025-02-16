@@ -66,8 +66,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     ))?;
 
     let (tx, rx) = std::sync::mpsc::channel();
-    setup_progress_bar(rx);
-
+    let handle = setup_progress_bar(rx);
     let reply = remote.push(
         RemoteOpts::default().with_progress(tx).with_compare(target),
         &if opts.force {
@@ -76,6 +75,8 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
             refname
         },
     )?;
+
+    let _ = handle.join();
 
     ui.renderln(&message_with_icon(Icon::Check, "done"))?;
 
