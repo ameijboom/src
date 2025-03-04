@@ -113,6 +113,7 @@ impl<W: fmt::Write> Render for TermRenderer<W> {
                 Attribute::Commit(oid) => write!(self.writer, "{}", oid.to_string().yellow()),
                 Attribute::Branch(name) => write!(self, "{}", format!(" {name}").blue()),
                 Attribute::Remote(name) => write!(self, "{}", format!("⬡ {name}").cyan()),
+                Attribute::Operation(name) => write!(self, "{}", format!("↻ {name}").cyan()),
             },
             Node::Group(heading, count, node) => {
                 write!(self, "\n{}", format!("{heading}").color(HEADER).bold())?;

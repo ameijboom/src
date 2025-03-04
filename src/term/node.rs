@@ -94,6 +94,7 @@ pub enum Attribute {
     CommitShort(git2::Oid),
     Branch(Cow<'static, str>),
     Remote(Cow<'static, str>),
+    Operation(Cow<'static, str>),
 }
 
 impl Attribute {

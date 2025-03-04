@@ -11,6 +11,7 @@ use super::{
     config::Config,
     index::Index,
     objects::{Branch, Commit, Ref, Tree},
+    rebase::{Rebase, RebaseError},
     remote::Remote,
     status::Status,
 };
@@ -34,14 +35,6 @@ impl From<git2::Error> for CheckoutError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum StashError {
-    #[error("git error: {0}")]
-    Git(#[from] git2::Error),
-    #[error("config error: {0}")]
-    Config(#[from] super::config::Error),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum RebaseError {
     #[error("git error: {0}")]
     Git(#[from] git2::Error),
     #[error("config error: {0}")]
@@ -206,6 +199,10 @@ impl Repo {
         self.repo.set_head_bytes(reference.0.name_bytes())?;
 
         Ok(())
+    }
+
+    pub fn read_rebase(&self) -> Result<Rebase, RebaseError> {
+        Rebase::from_path(&self.repo.path().join("rebase-merge/git-rebase-todo.backup"))
     }
 
     pub fn rebase(

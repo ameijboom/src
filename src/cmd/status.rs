@@ -1,8 +1,9 @@
-use std::{error::Error, fmt};
+use std::error::Error;
 
 use clap::Parser;
 use git2::{ErrorCode, RepositoryState};
 use minus::Pager;
+use tracing::instrument;
 
 use crate::{
     git::{Change, EntryStatus, Repo},
@@ -19,6 +20,7 @@ pub struct Opts {
     no_pager: bool,
 }
 
+#[instrument(skip(ui, repo), ret(Debug))]
 fn render_branch(
     ui: &mut impl Render,
     repo: &Repo,
@@ -60,6 +62,7 @@ fn render_branch(
     }
 }
 
+#[instrument(skip(repo), ret(Debug))]
 fn remote_state_indicators(
     repo: &Repo,
     state: (git2::Oid, git2::Oid),
@@ -93,24 +96,73 @@ fn remote_state_indicators(
     })
 }
 
-fn render_state(ui: &mut impl Render, repo: &Repo) -> Result<(), fmt::Error> {
+#[instrument(skip(ui, repo), ret(Debug))]
+fn render_rebase(ui: &mut impl Render, repo: &Repo) -> Result<(), Box<dyn Error>> {
+    let rebase = repo.read_rebase()?;
+    let mut children = vec![];
+
+    for op in rebase.operations.iter() {
+        let id = op.oid.to_string();
+        let kind = match op.ty {
+            git2::RebaseOperationType::Pick => "pick",
+            git2::RebaseOperationType::Reword => "reword",
+            git2::RebaseOperationType::Edit => "edit",
+            git2::RebaseOperationType::Squash => "squash",
+            git2::RebaseOperationType::Fixup => "fixup",
+            git2::RebaseOperationType::Exec => "exec",
+        };
+
+        children.push(block!(
+            spacer!(),
+            spacer!(),
+            Node::Attribute(Attribute::Operation(kind.into())),
+            spacer!(),
+            dimmed!(text!(id[..6].to_string())),
+            spacer!(),
+            Node::text_head_1(op.message.clone())
+        ));
+    }
+
+    children.push(block!(
+        spacer!(),
+        spacer!(),
+        continued!(text!("Fix conflicts and run 'git rebase --continue'"))
+    ));
+
+    ui.renderln(&Node::Group(
+        "Rebase".into(),
+        Some(rebase.operations.len()),
+        Box::new(Node::MultiLine(children)),
+    ))?;
+
+    Ok(())
+}
+
+#[instrument(skip(ui, repo), ret(Debug))]
+fn render_state(ui: &mut impl Render, repo: &Repo) -> Result<(), Box<dyn Error>> {
     match repo.state() {
-        RepositoryState::Merge => ui.renderln(&text!("In merge")),
+        RepositoryState::Merge => {
+            ui.renderln(&text!("Merge in progress"))?;
+            Ok(())
+        }
         RepositoryState::Revert | RepositoryState::RevertSequence => {
-            ui.renderln(&text!("In revert"))
+            ui.renderln(&text!("Revert in progress"))?;
+            Ok(())
         }
         RepositoryState::CherryPick | RepositoryState::CherryPickSequence => {
-            ui.renderln(&text!("In cherrypick"))
+            ui.renderln(&text!("Cherry-pick in progress"))?;
+            Ok(())
         }
         RepositoryState::Bisect => todo!(),
         // See: https://github.com/libgit2/libgit2/issues/6332
         RepositoryState::Rebase
         | RepositoryState::RebaseInteractive
-        | RepositoryState::RebaseMerge => ui.renderln(&text!("In rebase")),
+        | RepositoryState::RebaseMerge => render_rebase(ui, repo),
         _ => Ok(()),
     }
 }
 
+#[instrument(skip(ui, repo), ret(Debug))]
 fn render_commits(
     ui: &mut impl Render,
     repo: &Repo,
@@ -162,6 +214,7 @@ fn render_commits(
     Ok(ui.renderln(&Node::MultiLine(children))?)
 }
 
+#[instrument(skip(ui, repo), ret(Debug))]
 fn render_changes(ui: &mut impl Render, repo: &Repo) -> Result<(), Box<dyn Error>> {
     let mut children = vec![];
     let status = repo.status()?;
@@ -214,12 +267,17 @@ fn render_changes(ui: &mut impl Render, repo: &Repo) -> Result<(), Box<dyn Error
     Ok(ui.render(&Node::MultiLine(children))?)
 }
 
+#[instrument(skip(repo), ret(Debug))]
 fn find_state(repo: &Repo) -> Result<Option<(git2::Oid, git2::Oid)>, Box<dyn Error>> {
     let head = match repo.head() {
         Ok(head) => head,
         Err(e) if e.code() == ErrorCode::UnbornBranch => return Ok(None),
         Err(e) => return Err(e.into()),
     };
+
+    if !head.is_branch() {
+        return Ok(None);
+    }
 
     let local = head.target()?;
     let upstream = repo
@@ -234,6 +292,7 @@ fn find_state(repo: &Repo) -> Result<Option<(git2::Oid, git2::Oid)>, Box<dyn Err
     Ok(Some((local, remote)))
 }
 
+#[instrument(skip(ui, repo), ret(Debug))]
 fn render(mut ui: impl Render, repo: Repo) -> Result<(), Box<dyn Error>> {
     let state = find_state(&repo)?;
 

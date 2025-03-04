@@ -5,6 +5,7 @@ use clap_complete::{generate, Shell};
 use colored::Colorize;
 use git::Repo;
 use git2::{Repository, RepositoryOpenFlags};
+use tracing_subscriber::EnvFilter;
 
 mod cmd;
 mod git;
@@ -48,6 +49,10 @@ enum Cmd {
 }
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
+
     let opts = Opts::parse();
 
     if let Some(generator) = opts.generator {

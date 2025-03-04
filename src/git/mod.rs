@@ -4,6 +4,7 @@ use git2::{Error, ErrorClass, ErrorCode};
 mod config;
 mod index;
 mod objects;
+mod rebase;
 mod remote;
 mod repo;
 mod resolve;

@@ -2,7 +2,6 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_till},
     character::complete::i32,
-    sequence::tuple,
     IResult, Parser,
 };
 
@@ -30,7 +29,7 @@ fn prefix(pattern: &str) -> IResult<&str, Pattern<'_>> {
 }
 
 fn parent(pattern: &str) -> IResult<&str, Pattern<'_>> {
-    let (input, (prefix, _, n)) = tuple((prefix, tag("~"), i32)).parse(pattern)?;
+    let (input, (prefix, _, n)) = ((prefix, tag("~"), i32)).parse(pattern)?;
     Ok((input, Pattern::Parent((n as usize, Box::new(prefix)))))
 }
 
