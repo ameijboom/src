@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-chrono = "0.4.39"
-clap = { version = "4.5.27", features = ["derive"] }
-clap_complete = "4.5.42"
+chrono = "0.4.40"
+clap = { version = "4.5.31", features = ["derive"] }
+clap_complete = "4.5.46"
 colored = "3.0.0"
 git2 = { version = "0.20.0", features = ["zlib-ng-compat"] }
 hex = "0.4.3"
@@ -17,11 +17,11 @@ minus = { version = "5.6.1", features = [
     "search",
     "dynamic_output",
 ] }
-nom = "7.1.3"
+nom = "8.0.0"
 regex = "1.11.1"
 skim = { version = "0.10.4", default-features = false }
 ssh2-config = { git = "https://github.com/dmeijboom/ssh2-config", rev = "e9d528a16700d0b5769948896327e3f6871bf584" }
 strip-ansi-escapes = "0.2.1"
-tempfile = "3.15.0"
-thiserror = "2.0.11"
-which = "7.0.1"
+tempfile = "3.17.1"
+thiserror = "2.0.12"
+which = "7.0.2"
