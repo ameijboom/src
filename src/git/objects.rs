@@ -207,12 +207,4 @@ impl<'a> Ref<'a> {
     pub fn set_target(&mut self, oid: git2::Oid, message: &str) -> Result<Ref<'_>, git2::Error> {
         self.0.set_target(oid, message).map(Into::into)
     }
-
-    pub fn is_branch(&self) -> bool {
-        self.0.is_branch()
-    }
-
-    pub fn is_tag(&self) -> bool {
-        self.0.is_tag()
-    }
 }

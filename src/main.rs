@@ -9,6 +9,8 @@ use tracing_subscriber::EnvFilter;
 
 mod cmd;
 mod git;
+mod graph;
+mod rebase;
 mod term;
 
 #[derive(Parser)]
@@ -96,7 +98,10 @@ fn main() {
                     Some(branch) => {
                         cmd::checkout::run(repo, cmd::checkout::Opts::with_branch(branch))
                     }
-                    None => cmd::status::run(repo, cmd::status::Opts::default()),
+                    None => {
+                        let repo = gix::open(opts.dir)?;
+                        cmd::status::run(repo, cmd::status::Opts::default())
+                    }
                 },
             }
         }

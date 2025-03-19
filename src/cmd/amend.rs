@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use clap::Parser;
+use gix::ObjectId;
 use inquire::ui::{Color, RenderConfig};
 
 use crate::{
@@ -71,7 +72,7 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     ui.renderln(&continued!(block!(
         text!("Created"),
         spacer!(),
-        Node::Attribute(Attribute::CommitShort(oid))
+        Node::Attribute(Attribute::CommitShort(ObjectId::try_from(oid.as_bytes())?))
     )))?;
 
     Ok(())

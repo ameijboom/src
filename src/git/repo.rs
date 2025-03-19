@@ -1,8 +1,8 @@
-use std::{borrow::Cow, error::Error};
+use std::{borrow::Cow, error::Error, path::Path};
 
 use git2::{
     build::CheckoutBuilder, string_array::StringArray, BranchType, DiffFindOptions, DiffOptions,
-    ErrorClass, ErrorCode, RebaseOptions, StashApplyOptions, StashFlags, StatusOptions,
+    ErrorClass, ErrorCode, StashApplyOptions, StashFlags, StatusOptions,
 };
 
 use crate::git::signer::{ssh::SshSigner, Signer};
@@ -11,7 +11,6 @@ use super::{
     config::Config,
     index::Index,
     objects::{Branch, Commit, Ref, Tree},
-    rebase::{Rebase, RebaseError},
     remote::Remote,
     status::Status,
 };
@@ -108,21 +107,6 @@ impl<'a> DiffOpts<'a> {
     }
 }
 
-fn map_unique_commits(
-    repo: &git2::Repository,
-    base: git2::Oid,
-    tip: git2::Oid,
-) -> Result<Vec<Commit<'_>>, git2::Error> {
-    let mut revwalk = repo.revwalk()?;
-    revwalk.push(tip)?;
-    revwalk.hide(base)?;
-    let oids = revwalk.collect::<Result<Vec<_>, _>>()?;
-
-    oids.into_iter()
-        .map(|oid| repo.find_commit(oid).map(Commit::from))
-        .collect::<Result<Vec<_>, _>>()
-}
-
 pub struct Repo {
     repo: git2::Repository,
 }
@@ -134,6 +118,10 @@ impl From<git2::Repository> for Repo {
 }
 
 impl Repo {
+    pub fn path(&self) -> &Path {
+        self.repo.path()
+    }
+
     pub fn head(&self) -> Result<Ref<'_>, git2::Error> {
         self.repo.head().map(Into::into)
     }
@@ -162,10 +150,6 @@ impl Repo {
 
     pub fn find_remote(&self, name: &str) -> Result<Remote<'_>, git2::Error> {
         self.repo.find_remote(name).map(Into::into)
-    }
-
-    pub fn find_ref(&self, name: &str) -> Result<Ref<'_>, git2::Error> {
-        self.repo.find_reference(name).map(Into::into)
     }
 
     pub fn find_branch(&self, name: &str) -> Result<Branch<'_>, git2::Error> {
@@ -199,47 +183,6 @@ impl Repo {
         self.repo.set_head_bytes(reference.0.name_bytes())?;
 
         Ok(())
-    }
-
-    pub fn read_rebase(&self) -> Result<Rebase, RebaseError> {
-        Rebase::from_path(&self.repo.path().join("rebase-merge/git-rebase-todo.backup"))
-    }
-
-    pub fn rebase(
-        &self,
-        branch: &git2::AnnotatedCommit<'_>,
-        upstream: &git2::AnnotatedCommit<'_>,
-    ) -> Result<Option<git2::Oid>, RebaseError> {
-        let mut cb = CheckoutBuilder::default();
-        cb.safe();
-
-        let mut rebase = self.repo.rebase(
-            Some(branch),
-            Some(upstream),
-            None,
-            Some(RebaseOptions::default().checkout_options(cb)),
-        )?;
-
-        let config = Config::open_default()?;
-        let author = config.user.signature()?;
-        let mut oid = None;
-
-        while let Some(op) = rebase.next() {
-            let run = || {
-                let op = op?;
-                rebase.commit(None, &author, None)?;
-                Ok::<_, RebaseError>(op.id())
-            };
-
-            match run() {
-                Ok(new_oid) => oid = Some(new_oid),
-                Err(e) => return Err(e),
-            }
-        }
-
-        rebase.finish(None)?;
-
-        Ok(oid)
     }
 
     pub fn branches(
@@ -398,44 +341,5 @@ impl Repo {
                     .renames_head_to_index(true),
             ))?,
         ))
-    }
-
-    pub fn find_upstream_branch(
-        &self,
-        reference: &Ref<'_>,
-    ) -> Result<Option<Ref<'_>>, Box<dyn Error>> {
-        let name = reference.name()?;
-
-        match self.repo.branch_upstream_name(name) {
-            Ok(remote) => Ok(Some(self.find_ref(std::str::from_utf8(&remote)?)?)),
-            Err(e) if e.code() == ErrorCode::NotFound && e.class() == ErrorClass::Config => {
-                Ok(None)
-            }
-            Err(e) => Err(e.into()),
-        }
-    }
-
-    pub fn graph_ahead_behind(
-        &self,
-        local: git2::Oid,
-        remote: git2::Oid,
-    ) -> Result<(usize, usize), git2::Error> {
-        self.repo.graph_ahead_behind(local, remote)
-    }
-
-    pub fn commits_ahead_behind(
-        &self,
-        local: git2::Oid,
-        remote: git2::Oid,
-    ) -> Result<(Vec<Commit<'_>>, Vec<Commit<'_>>), git2::Error> {
-        let merge_base = self.repo.merge_base(local, remote)?;
-        let ahead = map_unique_commits(&self.repo, merge_base, local)?;
-        let behind = map_unique_commits(&self.repo, merge_base, remote)?;
-
-        Ok((ahead, behind))
-    }
-
-    pub fn state(&self) -> git2::RepositoryState {
-        self.repo.state()
     }
 }

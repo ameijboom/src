@@ -106,14 +106,6 @@ pub struct ProgressBar {
 }
 
 impl ProgressBar {
-    pub fn new(name: impl ToString) -> Self {
-        Self {
-            previous_state: None,
-            width: 24,
-            bars: vec![Bar::new(name)],
-        }
-    }
-
     pub fn with_multiple(names: Vec<impl ToString>) -> Self {
         Self {
             previous_state: None,
@@ -173,7 +165,7 @@ impl ProgressBar {
                     }
 
                     let new = decode_chars(&new_line);
-                    let current = decode_chars(&current_line);
+                    let current = decode_chars(current_line);
 
                     if new.len() < current.len() {
                         move_begin();

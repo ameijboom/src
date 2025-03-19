@@ -1,7 +1,5 @@
 use std::{borrow::Cow, error::Error};
 
-use crate::git::{Optional, Ref};
-
 macro_rules! dimmed {
     ($content: expr) => {
         Node::Dimmed(Box::new($content))
@@ -90,22 +88,21 @@ pub fn message_with_icon(icon: Icon, message: impl Into<Cow<'static, str>>) -> N
 
 #[derive(Debug)]
 pub enum Attribute {
-    Commit(git2::Oid),
-    CommitShort(git2::Oid),
+    Commit(gix::ObjectId),
+    CommitShort(gix::ObjectId),
+    Tag(Cow<'static, str>),
     Branch(Cow<'static, str>),
     Remote(Cow<'static, str>),
     Operation(Cow<'static, str>),
 }
 
 impl Attribute {
-    pub fn from_ref(reference: &Ref<'_>) -> Result<Attribute, Box<dyn Error>> {
-        if reference.is_branch() || reference.is_tag() {
-            Ok(Attribute::Branch(reference.shorthand()?.to_string().into()))
-        } else {
-            match reference.target().optional()? {
-                Some(oid) => Ok(Attribute::CommitShort(oid)),
-                None => Ok(Attribute::Remote(reference.shorthand()?.to_string().into())),
-            }
+    pub fn from_object(object: &gix::Object) -> Result<Attribute, Box<dyn Error>> {
+        match object.kind {
+            gix::objs::Kind::Tree => todo!(),
+            gix::objs::Kind::Blob => todo!(),
+            gix::objs::Kind::Commit => Ok(Attribute::CommitShort(object.id)),
+            gix::objs::Kind::Tag => Ok(Attribute::Tag(object.to_tag_ref().name.to_string().into())),
         }
     }
 }

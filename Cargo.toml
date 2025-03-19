@@ -9,6 +9,8 @@ clap = { version = "4.5.31", features = ["derive"] }
 clap_complete = "4.5.46"
 colored = "3.0.0"
 git2 = { version = "0.20.0", features = ["zlib-ng-compat"] }
+gix = { version = "0.70.0", features = ["max-performance-safe", "parallel"] }
+gix-hash = "0.16.0"
 hex = "0.4.3"
 http = "1.2.0"
 inquire = "0.7.5"

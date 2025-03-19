@@ -20,5 +20,5 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         repo.checkout(&branch.into())?;
     }
 
-    super::status::run(repo, super::status::Opts::default())
+    super::status::run(gix::open(repo.path())?, super::status::Opts::default())
 }

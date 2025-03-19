@@ -1,20 +1,29 @@
 use std::{fs, path::Path, str::FromStr};
 
+use gix::Repository;
+
 #[derive(Debug, thiserror::Error)]
 pub enum RebaseError {
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("git error: {0}")]
-    Git(#[from] git2::Error),
-    #[error("config error: {0}")]
-    Config(#[from] super::config::Error),
     #[error("invalid rebase todo: {0}")]
     Parse(String),
+    #[error("invalid object id: {0}")]
+    ObjectId(#[from] gix_hash::decode::Error),
+}
+
+pub enum RebaseOperationType {
+    Pick,
+    Reword,
+    Edit,
+    Squash,
+    Fixup,
+    Exec,
 }
 
 pub struct RebaseOp {
-    pub oid: git2::Oid,
-    pub ty: git2::RebaseOperationType,
+    pub oid: gix::ObjectId,
+    pub ty: RebaseOperationType,
     pub message: String,
 }
 
@@ -32,12 +41,12 @@ impl FromStr for RebaseOp {
         }
 
         let ty = match components[0] {
-            "p" | "pick" => git2::RebaseOperationType::Pick,
-            "r" | "reword" => git2::RebaseOperationType::Reword,
-            "e" | "edit" => git2::RebaseOperationType::Edit,
-            "s" | "squash" => git2::RebaseOperationType::Squash,
-            "f" | "fixup" => git2::RebaseOperationType::Fixup,
-            "x" | "exec" => git2::RebaseOperationType::Exec,
+            "p" | "pick" => RebaseOperationType::Pick,
+            "r" | "reword" => RebaseOperationType::Reword,
+            "e" | "edit" => RebaseOperationType::Edit,
+            "s" | "squash" => RebaseOperationType::Squash,
+            "f" | "fixup" => RebaseOperationType::Fixup,
+            "x" | "exec" => RebaseOperationType::Exec,
             _ => {
                 return Err(RebaseError::Parse(
                     "invalid rebase operation type".to_string(),
@@ -46,7 +55,7 @@ impl FromStr for RebaseOp {
         };
 
         Ok(Self {
-            oid: git2::Oid::from_str(components[1])?,
+            oid: gix::ObjectId::from_str(components[1])?,
             ty,
             message: components[2].to_string(),
         })
@@ -66,5 +75,9 @@ impl Rebase {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Self { operations })
+    }
+
+    pub fn from_repo(repo: &Repository) -> Result<Self, RebaseError> {
+        Rebase::from_path(&repo.path().join("rebase-merge/git-rebase-todo.backup"))
     }
 }

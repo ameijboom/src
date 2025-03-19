@@ -111,6 +111,7 @@ impl<W: fmt::Write> Render for TermRenderer<W> {
                         .yellow()
                 ),
                 Attribute::Commit(oid) => write!(self.writer, "{}", oid.to_string().yellow()),
+                Attribute::Tag(name) => write!(self, "{}", format!("#{name}").blue()),
                 Attribute::Branch(name) => write!(self, "{}", format!(" {name}").blue()),
                 Attribute::Remote(name) => write!(self, "{}", format!("⬡ {name}").cyan()),
                 Attribute::Operation(name) => write!(self, "{}", format!("↻ {name}").cyan()),

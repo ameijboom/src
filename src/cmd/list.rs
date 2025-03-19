@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use clap::Parser;
+use gix::ObjectId;
 use minus::Pager;
 
 use crate::{
@@ -82,7 +83,9 @@ fn list_commits<'a>(
             ui.render(&spacer!())?;
         }
 
-        ui.render(&Node::Attribute(Attribute::Commit(commit.id())))?;
+        ui.render(&Node::Attribute(Attribute::Commit(ObjectId::try_from(
+            commit.id().as_bytes(),
+        )?)))?;
 
         let message = commit.message().unwrap_or_default().trim();
 

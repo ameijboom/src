@@ -52,20 +52,10 @@ pub fn run(repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
         } else if analysis.is_fast_forward() {
             let target = head.set_target(oid, "fast-forward")?;
             repo.checkout_tree(&target.find_tree()?, true)?;
-        } else if opts.rebase {
-            let oid = head.target()?;
-            let local = repo.find_annotated_commit(oid)?;
-
-            repo.rebase(&local, &upstream)?;
-
-            let oid = repo.head()?.target().unwrap();
-            let reference = repo.create_ref(head.name()?, oid)?;
-
-            repo.checkout(&reference)?;
         } else {
-            return Err("unable to fast-forward (rebase disabled)".into());
+            return Err("unable to fast-forward (rebase not implemented)".into());
         }
     }
 
-    super::status::run(repo, super::status::Opts::default())
+    super::status::run(gix::open(repo.path())?, super::status::Opts::default())
 }

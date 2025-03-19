@@ -4,7 +4,6 @@ use git2::{Error, ErrorClass, ErrorCode};
 mod config;
 mod index;
 mod objects;
-mod rebase;
 mod remote;
 mod repo;
 mod resolve;
@@ -16,7 +15,6 @@ pub use objects::*;
 pub use remote::{ProgressEvent, RemoteOpts, SidebandOp};
 pub use repo::{CheckoutError, DiffOpts, Repo};
 pub use resolve::Pattern;
-pub use status::*;
 
 pub trait Optional<T> {
     fn optional(self) -> Result<Option<T>, Error>;

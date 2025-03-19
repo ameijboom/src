@@ -29,7 +29,7 @@ fn prefix(pattern: &str) -> IResult<&str, Pattern<'_>> {
 }
 
 fn parent(pattern: &str) -> IResult<&str, Pattern<'_>> {
-    let (input, (prefix, _, n)) = ((prefix, tag("~"), i32)).parse(pattern)?;
+    let (input, (prefix, _, n)) = (prefix, tag("~"), i32).parse(pattern)?;
     Ok((input, Pattern::Parent((n as usize, Box::new(prefix)))))
 }
 
