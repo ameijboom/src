@@ -14,6 +14,7 @@ mod git;
 mod graph;
 mod rebase;
 mod term;
+mod progress;
 
 #[derive(Parser)]
 struct Opts {

@@ -1,14 +1,13 @@
-use std::{env::current_dir, error::Error};
+use std::{env::current_dir, error::Error, fs};
 
 use clap::Parser;
-use git2::{build::RepoBuilder, FetchOptions};
+use gix::{bstr::BStr, progress::DoOrDiscard, remote::Direction};
 
 use crate::{
-    git::RemoteOpts,
+    progress,
     term::{
         node::prelude::*,
         render::{Render, TermRenderer},
-        setup_progress_bar,
     },
 };
 
@@ -29,6 +28,11 @@ fn convert_uri(uri: &str) -> Option<String> {
 }
 
 pub fn run(opts: Opts) -> Result<(), Box<dyn Error>> {
+    let root = progress::tree();
+    let sub_progress = root.add_child("Clone");
+    let handle = progress::setup_line_renderer(&root);
+    let mut progress = DoOrDiscard::from(Some(sub_progress));
+
     let uri = convert_uri(&opts.uri).unwrap_or(opts.uri);
     let name = uri
         .split('/')
@@ -42,20 +46,20 @@ pub fn run(opts: Opts) -> Result<(), Box<dyn Error>> {
         return Err(format!("Directory already exists: {}", path.display()).into());
     }
 
-    let (tx, rx) = std::sync::mpsc::channel();
-    let handle = setup_progress_bar(rx);
+    fs::create_dir_all(&path)?;
 
-    let mut remote = RemoteOpts::default().with_progress(tx);
-    let mut fetch_opts = FetchOptions::new();
+    let url = gix::url::parse(BStr::new(uri.as_bytes()))?;
+    let mut prepared = gix::prepare_clone(url, &path)?;
+    let (mut prepare_checkout, _) =
+        prepared.fetch_then_checkout(&mut progress, &gix::interrupt::IS_INTERRUPTED)?;
+    let (repo, _) =
+        prepare_checkout.main_worktree(&mut progress, &gix::interrupt::IS_INTERRUPTED)?;
 
-    fetch_opts.remote_callbacks(remote.callbacks()).depth(0);
+    handle.shutdown_and_wait();
 
-    RepoBuilder::new()
-        .fetch_options(fetch_opts)
-        .clone(&uri, &path)?;
-
-    remote.into_reply();
-    let _ = handle.join();
+    repo.find_default_remote(Direction::Fetch)
+        .transpose()?
+        .ok_or("remote not present")?;
 
     let mut ui = TermRenderer::default();
     ui.renderln(&message_with_icon(
