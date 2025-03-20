@@ -1,4 +1,6 @@
-use std::{io, path::PathBuf};
+use std::error::Error;
+use std::io;
+use std::path::{Path, PathBuf};
 
 use clap::{CommandFactory, Parser, ValueHint};
 use clap_complete::{generate, Shell};
@@ -50,6 +52,16 @@ enum Cmd {
     Checkout(cmd::checkout::Opts),
 }
 
+fn open_repo(path: impl AsRef<Path>) -> Result<Repo, Box<dyn Error>> {
+    let path = path.as_ref();
+
+    Ok(Repo::from(Repository::open_ext(
+        path,
+        RepositoryOpenFlags::empty(),
+        [path],
+    )?))
+}
+
 fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
@@ -66,15 +78,11 @@ fn main() {
 
     let app = || match opts.cmd {
         Some(Cmd::Clone(opts)) => cmd::clone::run(opts),
-        cmd => {
-            let repo = Repo::from(Repository::open_ext(
-                &opts.dir,
-                RepositoryOpenFlags::empty(),
-                [&opts.dir],
-            )?);
+        cmd => match cmd {
+            Some(cmd) => {
+                let repo = open_repo(&opts.dir)?;
 
-            match cmd {
-                Some(cmd) => match cmd {
+                match cmd {
                     Cmd::Add(opts) => cmd::add::run(repo, opts),
                     Cmd::Fix(opts) => cmd::commit::with_prefix("fix", repo, opts),
                     Cmd::Feat(opts) => cmd::commit::with_prefix("feat", repo, opts),
@@ -93,18 +101,19 @@ fn main() {
                     Cmd::Branch(opts) => cmd::branch::run(repo, opts),
                     Cmd::Checkout(opts) => cmd::checkout::run(repo, opts),
                     Cmd::Clone(_) => unreachable!(),
-                },
-                None => match opts.branch {
-                    Some(branch) => {
-                        cmd::checkout::run(repo, cmd::checkout::Opts::with_branch(branch))
-                    }
-                    None => {
-                        let repo = gix::open(opts.dir)?;
-                        cmd::status::run(repo, cmd::status::Opts::default())
-                    }
-                },
+                }
             }
-        }
+            None => match opts.branch {
+                Some(branch) => cmd::checkout::run(
+                    open_repo(&opts.dir)?,
+                    cmd::checkout::Opts::with_branch(branch),
+                ),
+                None => {
+                    let repo = gix::open(opts.dir)?;
+                    cmd::status::run(repo, cmd::status::Opts::default())
+                }
+            },
+        },
     };
 
     if let Err(e) = app() {
