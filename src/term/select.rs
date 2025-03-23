@@ -5,9 +5,9 @@ use skim::{
     Skim,
 };
 
-pub fn single(input: &[String], preview: Option<&str>) -> Result<Option<String>, Box<dyn Error>> {
+pub fn single(input: &[String], preview: Option<String>) -> Result<Option<String>, Box<dyn Error>> {
     let options = SkimOptionsBuilder::default()
-        .exit0(true)
+        .exit_0(true)
         .multi(false)
         .preview(preview)
         .build()?;
@@ -25,9 +25,9 @@ pub fn single(input: &[String], preview: Option<&str>) -> Result<Option<String>,
     }))
 }
 
-pub fn multi(input: &[String], preview: Option<&str>) -> Result<Vec<String>, Box<dyn Error>> {
+pub fn multi(input: &[String], preview: Option<String>) -> Result<Vec<String>, Box<dyn Error>> {
     let options = SkimOptionsBuilder::default()
-        .exit0(true)
+        .exit_0(true)
         .multi(true)
         .preview(preview)
         .build()?;

@@ -73,7 +73,10 @@ fn find_remote_branch<'a>(
 pub fn run(mut repo: Repo, opts: Opts) -> Result<(), Box<dyn Error>> {
     let branch_name = match opts.branch {
         Some(branch) => branch,
-        None => match select::single(&branch_names(&repo)?, Some("src list commit {}"))? {
+        None => match select::single(
+            &branch_names(&repo)?,
+            Some("src list commit {}".to_string()),
+        )? {
             Some(branch) => branch,
             None => return Err("No branch selected".into()),
         },

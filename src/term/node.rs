@@ -126,6 +126,7 @@ pub enum Icon {
 pub enum Indicator {
     Unknown,
     New,
+    Conflict,
     Modified,
     Renamed,
     Deleted,

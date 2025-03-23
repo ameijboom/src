@@ -7,7 +7,7 @@ use gix::{
     refs::Category,
     remote,
     state::InProgress,
-    status::{index_worktree, Item, UntrackedFiles},
+    status::{index_worktree, plumbing::index_as_worktree::EntryStatus, Item, UntrackedFiles},
     Repository,
 };
 use minus::Pager;
@@ -264,7 +264,10 @@ fn render_changes(ui: &mut impl Render, repo: &Repository) -> Result<(), Box<dyn
         for item in items {
             let indicator = match &item {
                 Item::IndexWorktree(item) => match item {
-                    index_worktree::Item::Modification { .. } => Indicator::Modified,
+                    index_worktree::Item::Modification { status, .. } => match status {
+                        EntryStatus::Conflict(_) => Indicator::Conflict,
+                        _ => Indicator::Modified,
+                    },
                     index_worktree::Item::DirectoryContents { entry, .. } => match entry.status {
                         gix::dir::entry::Status::Untracked => Indicator::New,
                         _ => Indicator::Modified,

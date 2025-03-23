@@ -144,7 +144,8 @@ impl<W: fmt::Write> Render for TermRenderer<W> {
                 Icon::Check => write!(self, "✓"),
             },
             Node::Indicator(indicator) => match indicator {
-                Indicator::Unknown => write!(self, "{}", "⚠".bright_black()),
+                Indicator::Unknown => write!(self, "{}", "?".bright_black()),
+                Indicator::Conflict => write!(self, "{}", "⚠".yellow()),
                 Indicator::New => write!(self, "{}", "✚".green()),
                 Indicator::Modified => write!(self, "{}", "~".yellow()),
                 Indicator::Renamed => write!(self, "{}", "➜".yellow()),
