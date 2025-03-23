@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::error::Error;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -7,14 +8,15 @@ use clap_complete::{generate, Shell};
 use colored::Colorize;
 use git::Repo;
 use git2::{Repository, RepositoryOpenFlags};
+use resolve_path::PathResolveExt;
 use tracing_subscriber::EnvFilter;
 
 mod cmd;
 mod git;
 mod graph;
+mod progress;
 mod rebase;
 mod term;
-mod progress;
 
 #[derive(Parser)]
 struct Opts {
@@ -51,6 +53,27 @@ enum Cmd {
     Unstash(cmd::unstash::Opts),
     Branch(cmd::branch::Opts),
     Checkout(cmd::checkout::Opts),
+}
+
+fn open_gix(path: impl AsRef<Path>) -> Result<gix::Repository, gix::open::Error> {
+    let base = path.as_ref();
+    let resolved = base.resolve();
+    let mut dir = resolved.as_ref();
+
+    loop {
+        if dir.join(".git").exists() {
+            return gix::open(dir);
+        }
+
+        let Some(parent) = dir.parent() else {
+            return Err(gix::open::Error::Io(io::Error::new(
+                io::ErrorKind::NotFound,
+                "Git repository not found",
+            )));
+        };
+
+        dir = parent;
+    }
 }
 
 fn open_repo(path: impl AsRef<Path>) -> Result<Repo, Box<dyn Error>> {
@@ -109,10 +132,7 @@ fn main() {
                     open_repo(&opts.dir)?,
                     cmd::checkout::Opts::with_branch(branch),
                 ),
-                None => {
-                    let repo = gix::open(opts.dir)?;
-                    cmd::status::run(repo, cmd::status::Opts::default())
-                }
+                None => cmd::status::run(open_gix(opts.dir)?, cmd::status::Opts::default()),
             },
         },
     };

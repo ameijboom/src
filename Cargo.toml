@@ -38,3 +38,4 @@ thiserror = "2.0.12"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 which = "7.0.2"
+resolve-path = "0.1.0"
